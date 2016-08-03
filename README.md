@@ -1,11 +1,13 @@
 # Typr.js  
 
-[LIVE DEMO](https://photopea.github.io/Typr.js) Typr.js is a Javascript parser and utility for working with fonts (TTF, OTF ...). It is an alternative to [opentype.js](https://github.com/nodebox/opentype.js).
+[LIVE DEMO](https://photopea.github.io/Typr.js) Typr.js is a Javascript parser and utility for working with fonts (TTF, OTF). It is an alternative to [opentype.js](https://github.com/nodebox/opentype.js).
 
 * light and small (4x smaller than opentype.js)
 * ultra fast (2x to 5x faster parsing than opentype.js)
 * successfully parsed more than 2000 fonts (opentype.js had problems with many of them)
 * simple structure and easy to extend
+
+![Typr.js preview](glyphs.png "Typr.js preview")
 
 Typr.js consists of static functions only, it can be easily rewritten into C or any other procedural language. There are no constructors, no methods, no complex structure. It consists of two independent parts (separate files):
 
