@@ -98,9 +98,6 @@
 			
 			off=0;  gid=0;
 			
-			var desc = "<b>Font:</b> "+font.name.fullName+", "+font.name.manufacturer;
-			document.getElementById("glyphdesc").innerHTML = desc;
-			
 			drawGlyphs();
 			drawGlyph();
 			drawWord();
@@ -237,9 +234,8 @@
 	<h1>Typr.js demo</h1>
 		
 <div class="main">
-	<b style="float:right">Drag and drop your own font!</b>
-	<div id="glyphdesc"></div>
 	<button type="button" onclick="drawPrev()">Previous 100</button>  <button type="button" onclick="drawNext()">Next 100</button>
+	<b style="float:right">Drag and drop your own font!</b>
 	<div id="glyphcont"></div>
 	
 	
