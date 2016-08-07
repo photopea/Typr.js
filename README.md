@@ -35,6 +35,13 @@ console.log(font);
 * `code`: integer code of the character
 * returns the integer index of the glyph, corresponding to the unicode character
 
+#### `Typr.U.getPairAdjustment(font, gid1, gid2)`
+
+* `font`: font object
+* `gid1`: index of the first glyph
+* `gid2`: index of the second glyph
+* returns the the adjustment parameters of the pair of glyphs
+
 #### `Typr.U.glyphToPath(font, gid)`
 
 * `font`: font object
