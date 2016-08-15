@@ -1,8 +1,8 @@
 # Typr.js  
 
-[LIVE DEMO](https://photopea.github.io/Typr.js) Typr.js is a Javascript parser and utility for working with fonts (TTF, OTF). It is an alternative to [opentype.js](https://github.com/nodebox/opentype.js).
+[LIVE DEMO](https://photopea.github.io/Typr.js) Typr.js is a Javascript parser and utility for working with fonts (TTF, OTF). It is an alternative to [opentype.js](https://github.com/nodebox/opentype.js). It is the main text engine for [Photopea image editor](https://www.photopea.com).
 
-* light and small (4x smaller than opentype.js)
+* light and small (60 kB unminified uncompressed, 4x smaller than opentype.js)
 * ultra fast (2x to 5x faster parsing than opentype.js)
 * successfully parsed more than 2000 fonts (opentype.js had problems with many of them)
 * simple structure and easy to extend
@@ -59,7 +59,9 @@ Typr.js uses the following structure to represent the path:
 * "Q": (X1,Y1,X2,Y2) - quadratic bézier curve from the previous position to X2,Y2, using X1,Y1 as a control point.
 * "C": (X1,Y1,X2,Y2,X3,Y3) - cubic bézier curve from the previous position to X3,Y3, using X1,Y1 and X2,Y2 as control points.
 
-A "raindrop" shape: `{ cmds:["M","L","Q","L"], crds:[0,0,20,80,0,120,-20,80,0,0] }` (2 + 2 + 4 + 2 coordinates).
+A "raindrop" shape: `{ cmds:["M","L","Q","L"], crds:[0,0,20,80,0,120,-20,80,0,0] }` (2 + 2 + 4 + 2 coordinates). 
+
+Since the coordinates are in a separate array, it is very easy to apply affine transformations onto a path, merge paths etc.
 
 #### `Typr.U.stringToPath(font, str)`
 
