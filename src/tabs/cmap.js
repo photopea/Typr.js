@@ -1,5 +1,3 @@
-
-
 Typr.cmap = {};
 Typr.cmap.parse = function(data, offset, length)
 {
@@ -40,7 +38,8 @@ Typr.cmap.parse = function(data, offset, length)
 			if     (format==0) subt = Typr.cmap.parse0(data, noffset);
 			else if(format==4) subt = Typr.cmap.parse4(data, noffset);
 			else if(format==6) subt = Typr.cmap.parse6(data, noffset);
-			//else console.log("unknown format: "+format, platformID, encodingID, noffset);
+			else if(format==12)subt = Typr.cmap.parse12(data,noffset);
+			else console.log("unknown format: "+format, platformID, encodingID, noffset);
 			obj.tables.push(subt);
 		}
 		
@@ -104,5 +103,29 @@ Typr.cmap.parse6 = function(data, offset)
 	obj.glyphIdArray = [];
 	for(var i=0; i<entryCount; i++) {obj.glyphIdArray.push(bin.readUshort(data, offset));  offset+=2;}
 	
+	return obj;
+}
+
+Typr.cmap.parse12 = function(data, offset)
+{
+	var bin = Typr._bin;
+	var offset0 = offset;
+	var obj = {};
+	
+	obj.format = bin.readUshort(data, offset);  offset+=2;
+	offset += 2;
+	var length = bin.readUint(data, offset);  offset+=4;
+	var lang   = bin.readUint(data, offset);  offset+=4;
+	var nGroups= bin.readUint(data, offset);  offset+=4;
+	obj.groups = [];
+	
+	for(var i=0; i<nGroups; i++)  
+	{
+		var off = offset + i * 12;
+		var startCharCode = bin.readUint(data, off+0);
+		var endCharCode   = bin.readUint(data, off+4);
+		var startGlyphID  = bin.readUint(data, off+8);
+		obj.groups.push([  startCharCode, endCharCode, startGlyphID  ]);
+	}
 	return obj;
 }

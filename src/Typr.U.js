@@ -8,7 +8,8 @@ Typr.U.codeToGlyph = function(font, code)
 	var cmap = font.cmap;
 	
 	var tind = -1;
-	if(cmap.p3e1!=null) tind = cmap.p3e1;
+	if(cmap.p0e4!=null) tind = cmap.p0e4;
+	else if(cmap.p3e1!=null) tind = cmap.p3e1;
 	else if(cmap.p1e0!=null) tind = cmap.p1e0;
 	
 	if(tind==-1) throw "no familiar platform and encoding!";
@@ -30,6 +31,16 @@ Typr.U.codeToGlyph = function(font, code)
 		if(tab.idRangeOffset[sind]!=0)
 			return tab.glyphIdArray[(code-tab.startCount[sind]) + (tab.idRangeOffset[sind]>>1) - (tab.idRangeOffset.length-sind)];
 		else return code + tab.idDelta[sind];
+	}
+	else if(tab.format==12)
+	{
+		if(code>tab.groups[tab.groups.length-1][1]) return 0;
+		for(var i=0; i<tab.groups.length; i++)
+		{
+			var grp = tab.groups[i];
+			if(grp[0]<=code && code<=grp[1]) return grp[2] + (code-grp[0]);
+		}
+		return 0;
 	}
 	else throw "unknown cmap table format "+tab.format;
 }
@@ -441,9 +452,13 @@ Typr.U._drawCFF = function(cmds, state, font, p)
 				
 				//console.log(bchar, bind);
 				//console.log(achar, aind);
+				//state.x=x; state.y=y; state.nStems=nStems; state.haveWidth=haveWidth; state.width=width;  state.open=open;
+				
 				Typr.U._drawCFF(font.CharStrings[bind], state,font,p);
 				state.x = adx; state.y = ady;
 				Typr.U._drawCFF(font.CharStrings[aind], state,font,p);
+				
+				//x=state.x; y=state.y; nStems=state.nStems; haveWidth=state.haveWidth; width=state.width;  open=state.open;
 			}
 		}		
 		else if(v=="o19" || v=="o20") 
@@ -537,10 +552,14 @@ Typr.U._drawCFF = function(cmds, state, font, p)
 		else if(v=="o10" || v=="o29")	// callsubr || callgsubr
 		{
 			var obj = (v=="o10" ? font.Private : font);
-            var subr = obj.Subrs[ stack.pop() + obj.Bias ];
-			state.x=x; state.y=y; state.nStems=nStems; state.haveWidth=haveWidth; state.width=width;  state.open=open;
-            Typr.U._drawCFF(subr, state,font,p);
-			x=state.x; y=state.y; nStems=state.nStems; haveWidth=state.haveWidth; width=state.width;  open=state.open;
+			if(stack.length==0) { console.log("error: empty stack");  }
+			else {
+				var ind = stack.pop();
+				var subr = obj.Subrs[ ind + obj.Bias ];
+				state.x=x; state.y=y; state.nStems=nStems; state.haveWidth=haveWidth; state.width=width;  state.open=open;
+				Typr.U._drawCFF(subr, state,font,p);
+				x=state.x; y=state.y; nStems=state.nStems; haveWidth=state.haveWidth; width=state.width;  open=state.open;
+			}
 		}
 		else if(v=="o30" || v=="o31")   // vhcurveto || hvcurveto
 		{
