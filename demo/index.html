@@ -49,7 +49,6 @@
 				padding:0.5em 2em;
 				background-color: #ffffff;
 			}
-			#glyphcont img { cursor:pointer; }
 		</style>
 
 
@@ -169,9 +168,12 @@
 			
 			var props = document.getElementById("properties");
 			var ids = [], hex = [], chars = [];
-			for(var i=0; i<20000; i++)  
-				if(Typr.U.codeToGlyph(font, i)==gid) {  ids.push(i);  var hx=i.toString(16);  while(hx.length<4)hx="0"+hx;  hex.push("#"+hx);  chars.push(String.fromCharCode(i));  }
-			if(ids.length<10)  props.innerHTML = "Unicode: "+ids.join(", ")+" - "+hex.join(", ")+"   <span style=\"font-size:2em\">"+chars.join(", ")+"</span>";
+			for(var i=0; i<100000; i++)  
+				if(Typr.U.codeToGlyph(font, i)==gid) {  ids.push(i);  var hx=i.toString(16);  while(hx.length<4)hx="0"+hx;  hex.push("#"+hx);  chars.push(String.fromCharCode(i)); 
+														if(ids.length>30) break; }
+			
+			if(ids.length<11)  props.innerHTML = "Unicode: "+ids.join(", ")+" - "+hex.join(", ")+"   <span style=\"font-size:2em\">"+chars.join(", ")+"</span>";
+			else               props.innerHTML = "Unicode: more than 10 codes";
 				
 			var tarea = document.getElementById("textarea");
 			tarea.innerHTML = "{\n\"cmds\" : \n"+JSON.stringify(path.cmds)+",\n\n\"crds\" : \n"+JSON.stringify(path.crds)+"\n}";
@@ -232,7 +234,7 @@
 </head>
 <body onload="go();">
 
-	<h1>Typr.js demo <small>(<a href="https://github.com/photopea/Typr.js" target="_blank">GitHub</a>)</small></h1>
+	<h1>Typr.js demo</h1>
 		
 <div class="main">
 	<button type="button" onclick="drawPrev()">Previous 100</button>  <button type="button" onclick="drawNext()">Next 100</button>
