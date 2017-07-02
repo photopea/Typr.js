@@ -60,10 +60,10 @@ Typr.U.glyphToPath = function(font, gid)
 
 Typr.U._drawGlyf = function(gid, glyf, path)
 {
-	var gl = font.glyf[gid];
+	var gl = glyf[gid];
 	if(gl!=null){
 		if(gl.noc>-1) Typr.U._simpleGlyph(gl, path);
-		else          Typr.U._compoGlyph (gl, font.glyf, path);
+		else          Typr.U._compoGlyph (gl, glyf, path);
 	}
 }
 Typr.U._simpleGlyph = function(gl, p)
