@@ -51,20 +51,21 @@ Typr.U.glyphToPath = function(font, gid)
 	var path = { cmds:[], crds:[] };
 	if(font.CFF)
 	{
-		var state = {x:0,y:0,stack:[],nStems:0,haveWidth:false,width:font.CFF.Private.defaultWidthX,open:false};
+		var state = {x:0,y:0,stack:[],nStems:0,haveWidth:false,width: font.CFF.Private ? font.CFF.Private.defaultWidthX : 0,open:false};
 		Typr.U._drawCFF(font.CFF.CharStrings[gid], state, font.CFF, path);
 	}
-	if(font.glyf)
-	{
-		var gl = font.glyf[gid];
-		if(gl!=null){
-			if(gl.noc>-1) Typr.U._simpleGlyph(gl, path);
-			else          Typr.U._compoGlyph (gl, font.glyf, path);
-		}
-	}
+	if(font.glyf) Typr.U._drawGlyf(gid, font.glyf, path);
 	return path;
 }
 
+Typr.U._drawGlyf = function(gid, glyf, path)
+{
+	var gl = font.glyf[gid];
+	if(gl!=null){
+		if(gl.noc>-1) Typr.U._simpleGlyph(gl, path);
+		else          Typr.U._compoGlyph (gl, font.glyf, path);
+	}
+}
 Typr.U._simpleGlyph = function(gl, p)
 {
 	for(var c=0; c<gl.noc; c++)
@@ -106,14 +107,13 @@ Typr.U._simpleGlyph = function(gl, p)
 		}
 	}
 }
-
 Typr.U._compoGlyph = function(gl, glyf, p)
 {
 	for(var j=0; j<gl.parts.length; j++)
 	{
-		var prt = gl.parts[j];
 		var path = { cmds:[], crds:[] };
-		if(glyf[prt.glyphIndex]!=null)  Typr.U._simpleGlyph(glyf[prt.glyphIndex], path);
+		var prt = gl.parts[j];
+		Typr.U._drawGlyf(prt.glyphIndex, glyf, path);
 		
 		var m = prt.m;
 		for(var i=0; i<path.crds.length; i+=2)
