@@ -91,6 +91,7 @@ Let's implement a little function for drawing a string:
 Typr.U.stringToContext = function(font, str, ctx, size, color, x, y)
 {
   var gls  = Typr.U.stringToGlyphs(font, str);
+  //  gls.reverse();  // reverse if Right-to-Left
   var path = Typr.U.glyphsToPath  (font, gls);
   var scale = size / font.head.unitsPerEm;
   
