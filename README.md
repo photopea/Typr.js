@@ -73,7 +73,7 @@ Since the coordinates are in a separate array, it is very easy to apply affine t
 
 * `font`: font object
 * `gls`: the array of glyphs, wich you want to draw using a font
-* returns the vector path of the outline of the string
+* returns the vector path of the outline of the input glyph array
 
 Note, that all paths returned by `Typr.U` are in font units ( font.head.unitsPerEm ). You must scale them down to convert them to pixels.
 
