@@ -42,6 +42,12 @@ Typr._bin = {
 		//if(p>=buff.length) throw "error";
 		return (buff[p]<<8) | buff[p+1];
 	},
+	readUshorts : function(buff, p, len)
+	{
+		var arr = [];
+		for(var i=0; i<len; i++) arr.push(Typr._bin.readUshort(buff, p+i*2));
+		return arr;
+	},
 	readUint : function(buff, p)
 	{
 		//if(p>=buff.length) throw "error";

@@ -344,6 +344,8 @@
 		}	
 		return dict;
 	}
+
+
 Typr.cmap = {};
 Typr.cmap.parse = function(data, offset, length)
 {
@@ -381,10 +383,10 @@ Typr.cmap.parse = function(data, offset, length)
 			var subt;
 			offs.push(noffset);
 			var format = bin.readUshort(data, noffset);
-			if     (format==0) subt = Typr.cmap.parse0(data, noffset);
-			else if(format==4) subt = Typr.cmap.parse4(data, noffset);
-			else if(format==6) subt = Typr.cmap.parse6(data, noffset);
-			else if(format==12)subt = Typr.cmap.parse12(data,noffset);
+			if     (format== 0) subt = Typr.cmap.parse0(data, noffset);
+			else if(format== 4) subt = Typr.cmap.parse4(data, noffset);
+			else if(format== 6) subt = Typr.cmap.parse6(data, noffset);
+			else if(format==12) subt = Typr.cmap.parse12(data,noffset);
 			else console.log("unknown format: "+format, platformID, encodingID, noffset);
 			obj.tables.push(subt);
 		}
@@ -421,15 +423,12 @@ Typr.cmap.parse4 = function(data, offset)
 	obj.searchRange = bin.readUshort(data, offset);  offset+=2;
 	obj.entrySelector = bin.readUshort(data, offset);  offset+=2;
 	obj.rangeShift = bin.readUshort(data, offset);  offset+=2;
-	obj.endCount = [];
-	for(var i=0; i<segCount; i++) {obj.endCount.push(bin.readUshort(data, offset));  offset+=2;}
-	var reservedPad = bin.readUshort(data, offset);  offset+=2;
-	obj.startCount = [];
-	for(var i=0; i<segCount; i++) {obj.startCount.push(bin.readUshort(data, offset));  offset+=2;}
+	obj.endCount   = bin.readUshorts(data, offset, segCount);  offset += segCount*2;
+	offset+=2;
+	obj.startCount = bin.readUshorts(data, offset, segCount);  offset += segCount*2;
 	obj.idDelta = [];
 	for(var i=0; i<segCount; i++) {obj.idDelta.push(bin.readShort(data, offset));  offset+=2;}
-	obj.idRangeOffset = [];
-	for(var i=0; i<segCount; i++) {obj.idRangeOffset.push(bin.readUshort(data, offset));  offset+=2;}
+	obj.idRangeOffset = bin.readUshorts(data, offset, segCount);  offset += segCount*2;
 	obj.glyphIdArray = [];
 	while(offset< offset0+length) {obj.glyphIdArray.push(bin.readUshort(data, offset));  offset+=2;}
 	return obj;
@@ -479,214 +478,150 @@ Typr.cmap.parse12 = function(data, offset)
 Typr.glyf = {};
 Typr.glyf.parse = function(data, offset, length, font)
 {
-	var offset0 = offset;
-	var bin = Typr._bin;
 	var obj = [];
-	
-	//console.log(offset, length, "glyphs:", font.loca.length);
-	
-	//console.log(font.loca.length, font.loca, offset0+font.loca[93]);
+	for(var g=0; g<font.maxp.numGlyphs; g++) obj.push(null);
+	return obj;
+}
 
-	for(var g=0; g<font.loca.length-1; g++)
+Typr.glyf._parseGlyf = function(font, g)
+{
+	var bin = Typr._bin;
+	var data = font._data;
+	
+	var offset = Typr._tabOffset(data, "glyf") + font.loca[g];
+		
+	if(font.loca[g]==font.loca[g+1]) return null;
+		
+	var gl = {};
+		
+	gl.noc  = bin.readShort(data, offset);  offset+=2;		// number of contours
+	gl.xMin = bin.readShort(data, offset);  offset+=2;
+	gl.yMin = bin.readShort(data, offset);  offset+=2;
+	gl.xMax = bin.readShort(data, offset);  offset+=2;
+	gl.yMax = bin.readShort(data, offset);  offset+=2;
+	
+	if(gl.xMin>=gl.xMax || gl.yMin>=gl.yMax) return null;
+		
+	if(gl.noc>0)
 	{
-		offset = offset0 + font.loca[g];
+		gl.endPts = [];
+		for(var i=0; i<gl.noc; i++) { gl.endPts.push(bin.readUshort(data,offset)); offset+=2; }
 		
-		if(font.loca[g]==font.loca[g+1]) {  obj.push(null);  continue;  }
+		var instructionLength = bin.readUshort(data,offset); offset+=2;
+		if((data.length-offset)<instructionLength) return null;
+		gl.instructions = bin.readBytes(data, offset, instructionLength);   offset+=instructionLength;
 		
-		var gl = {};  obj.push(gl);
-		
-		gl.noc  = bin.readShort(data, offset);  offset+=2;		// number of contours
-		gl.xMin = bin.readShort(data, offset);  offset+=2;
-		gl.yMin = bin.readShort(data, offset);  offset+=2;
-		gl.xMax = bin.readShort(data, offset);  offset+=2;
-		gl.yMax = bin.readShort(data, offset);  offset+=2;
-		
-		if(gl.xMin>=gl.xMax || gl.yMin>=gl.yMax) { obj.pop();  obj.push(null); continue; }
-		
-		if(gl.noc>0)
-		{
-			gl.endPts = [];
-			for(var i=0; i<gl.noc; i++) { gl.endPts.push(bin.readUshort(data,offset)); offset+=2; }
-			
-			var instructionLength = bin.readUshort(data,offset); offset+=2;
-			if((data.length-offset)<instructionLength) { obj.pop();  obj.push(null); continue; }
-			gl.instructions = bin.readBytes(data, offset, instructionLength);   offset+=instructionLength;
-			
-			var crdnum = gl.endPts[gl.noc-1]+1;
-			gl.flags = [];
-			for(var i=0; i<crdnum; i++ ) 
-			{ 
-				var flag = data[offset];  offset++; 
-				gl.flags.push(flag); 
-				if((flag&8)!=0)
-				{
-					var rep = data[offset];  offset++;
-					for(var j=0; j<rep; j++) { gl.flags.push(flag); i++; }
-				}
+		var crdnum = gl.endPts[gl.noc-1]+1;
+		gl.flags = [];
+		for(var i=0; i<crdnum; i++ ) 
+		{ 
+			var flag = data[offset];  offset++; 
+			gl.flags.push(flag); 
+			if((flag&8)!=0)
+			{
+				var rep = data[offset];  offset++;
+				for(var j=0; j<rep; j++) { gl.flags.push(flag); i++; }
 			}
-			gl.xs = [];
-			for(var i=0; i<crdnum; i++) {
-				var i8=((gl.flags[i]&2)!=0), same=((gl.flags[i]&16)!=0);  
-				if(i8) { gl.xs.push(same ? data[offset] : -data[offset]);  offset++; }
-				else
-				{
-					if(same) gl.xs.push(0);
-					else { gl.xs.push(bin.readShort(data, offset));  offset+=2; }
-				}
-			}
-			gl.ys = [];
-			for(var i=0; i<crdnum; i++) {
-				var i8=((gl.flags[i]&4)!=0), same=((gl.flags[i]&32)!=0);  
-				if(i8) { gl.ys.push(same ? data[offset] : -data[offset]);  offset++; }
-				else
-				{
-					if(same) gl.ys.push(0);
-					else { gl.ys.push(bin.readShort(data, offset));  offset+=2; }
-				}
-			}
-			var x = 0, y = 0;
-			for(var i=0; i<crdnum; i++) { x += gl.xs[i]; y += gl.ys[i];  gl.xs[i]=x;  gl.ys[i]=y; }
-			//console.log(endPtsOfContours, instructionLength, instructions, flags, xCoordinates, yCoordinates);
 		}
-		else
-		{
-			var ARG_1_AND_2_ARE_WORDS	= 1<<0;
-			var ARGS_ARE_XY_VALUES		= 1<<1;
-			var ROUND_XY_TO_GRID		= 1<<2;
-			var WE_HAVE_A_SCALE			= 1<<3;
-			var RESERVED				= 1<<4;
-			var MORE_COMPONENTS			= 1<<5;
-			var WE_HAVE_AN_X_AND_Y_SCALE= 1<<6;
-			var WE_HAVE_A_TWO_BY_TWO	= 1<<7;
-			var WE_HAVE_INSTRUCTIONS	= 1<<8;
-			var USE_MY_METRICS			= 1<<9;
-			var OVERLAP_COMPOUND		= 1<<10;
-			var SCALED_COMPONENT_OFFSET	= 1<<11;
-			var UNSCALED_COMPONENT_OFFSET	= 1<<12;
-			
-			gl.parts = [];
-			var flags;
-			do {
-				flags = bin.readUshort(data, offset);  offset += 2;
-				var part = { m:{a:1,b:0,c:0,d:1,tx:0,ty:0}, p1:-1, p2:-1 };  gl.parts.push(part);
-				part.glyphIndex = bin.readUshort(data, offset);  offset += 2;
-				if ( flags & ARG_1_AND_2_ARE_WORDS) {
-					var arg1 = bin.readShort(data, offset);  offset += 2;
-					var arg2 = bin.readShort(data, offset);  offset += 2;
-				} else {
-					var arg1 = bin.readInt8(data, offset);  offset ++;
-					var arg2 = bin.readInt8(data, offset);  offset ++;
-				}
-				
-				if(flags & ARGS_ARE_XY_VALUES) { part.m.tx = arg1;  part.m.ty = arg2; }
-				else  {  part.p1=arg1;  part.p2=arg2;  }
-				//part.m.tx = arg1;  part.m.ty = arg2;
-				//else { throw "params are not XY values"; }
-				
-				if ( flags & WE_HAVE_A_SCALE ) {
-					part.m.a = part.m.d = bin.readF2dot14(data, offset);  offset += 2;    
-				} else if ( flags & WE_HAVE_AN_X_AND_Y_SCALE ) {
-					part.m.a = bin.readF2dot14(data, offset);  offset += 2; 
-					part.m.d = bin.readF2dot14(data, offset);  offset += 2; 
-				} else if ( flags & WE_HAVE_A_TWO_BY_TWO ) {
-					part.m.a = bin.readF2dot14(data, offset);  offset += 2; 
-					part.m.b = bin.readF2dot14(data, offset);  offset += 2; 
-					part.m.c = bin.readF2dot14(data, offset);  offset += 2; 
-					part.m.d = bin.readF2dot14(data, offset);  offset += 2; 
-				}
-			} while ( flags & MORE_COMPONENTS ) 
-			if (flags & WE_HAVE_INSTRUCTIONS){
-				var numInstr = bin.readUshort(data, offset);  offset += 2;
-				gl.instr = [];
-				for(var i=0; i<numInstr; i++) { gl.instr.push(data[offset]);  offset++; }
+		gl.xs = [];
+		for(var i=0; i<crdnum; i++) {
+			var i8=((gl.flags[i]&2)!=0), same=((gl.flags[i]&16)!=0);  
+			if(i8) { gl.xs.push(same ? data[offset] : -data[offset]);  offset++; }
+			else
+			{
+				if(same) gl.xs.push(0);
+				else { gl.xs.push(bin.readShort(data, offset));  offset+=2; }
 			}
+		}
+		gl.ys = [];
+		for(var i=0; i<crdnum; i++) {
+			var i8=((gl.flags[i]&4)!=0), same=((gl.flags[i]&32)!=0);  
+			if(i8) { gl.ys.push(same ? data[offset] : -data[offset]);  offset++; }
+			else
+			{
+				if(same) gl.ys.push(0);
+				else { gl.ys.push(bin.readShort(data, offset));  offset+=2; }
+			}
+		}
+		var x = 0, y = 0;
+		for(var i=0; i<crdnum; i++) { x += gl.xs[i]; y += gl.ys[i];  gl.xs[i]=x;  gl.ys[i]=y; }
+		//console.log(endPtsOfContours, instructionLength, instructions, flags, xCoordinates, yCoordinates);
+	}
+	else
+	{
+		var ARG_1_AND_2_ARE_WORDS	= 1<<0;
+		var ARGS_ARE_XY_VALUES		= 1<<1;
+		var ROUND_XY_TO_GRID		= 1<<2;
+		var WE_HAVE_A_SCALE			= 1<<3;
+		var RESERVED				= 1<<4;
+		var MORE_COMPONENTS			= 1<<5;
+		var WE_HAVE_AN_X_AND_Y_SCALE= 1<<6;
+		var WE_HAVE_A_TWO_BY_TWO	= 1<<7;
+		var WE_HAVE_INSTRUCTIONS	= 1<<8;
+		var USE_MY_METRICS			= 1<<9;
+		var OVERLAP_COMPOUND		= 1<<10;
+		var SCALED_COMPONENT_OFFSET	= 1<<11;
+		var UNSCALED_COMPONENT_OFFSET	= 1<<12;
+		
+		gl.parts = [];
+		var flags;
+		do {
+			flags = bin.readUshort(data, offset);  offset += 2;
+			var part = { m:{a:1,b:0,c:0,d:1,tx:0,ty:0}, p1:-1, p2:-1 };  gl.parts.push(part);
+			part.glyphIndex = bin.readUshort(data, offset);  offset += 2;
+			if ( flags & ARG_1_AND_2_ARE_WORDS) {
+				var arg1 = bin.readShort(data, offset);  offset += 2;
+				var arg2 = bin.readShort(data, offset);  offset += 2;
+			} else {
+				var arg1 = bin.readInt8(data, offset);  offset ++;
+				var arg2 = bin.readInt8(data, offset);  offset ++;
+			}
+			
+			if(flags & ARGS_ARE_XY_VALUES) { part.m.tx = arg1;  part.m.ty = arg2; }
+			else  {  part.p1=arg1;  part.p2=arg2;  }
+			//part.m.tx = arg1;  part.m.ty = arg2;
+			//else { throw "params are not XY values"; }
+			
+			if ( flags & WE_HAVE_A_SCALE ) {
+				part.m.a = part.m.d = bin.readF2dot14(data, offset);  offset += 2;    
+			} else if ( flags & WE_HAVE_AN_X_AND_Y_SCALE ) {
+				part.m.a = bin.readF2dot14(data, offset);  offset += 2; 
+				part.m.d = bin.readF2dot14(data, offset);  offset += 2; 
+			} else if ( flags & WE_HAVE_A_TWO_BY_TWO ) {
+				part.m.a = bin.readF2dot14(data, offset);  offset += 2; 
+				part.m.b = bin.readF2dot14(data, offset);  offset += 2; 
+				part.m.c = bin.readF2dot14(data, offset);  offset += 2; 
+				part.m.d = bin.readF2dot14(data, offset);  offset += 2; 
+			}
+		} while ( flags & MORE_COMPONENTS ) 
+		if (flags & WE_HAVE_INSTRUCTIONS){
+			var numInstr = bin.readUshort(data, offset);  offset += 2;
+			gl.instr = [];
+			for(var i=0; i<numInstr; i++) { gl.instr.push(data[offset]);  offset++; }
 		}
 	}
-	
-	
-	return obj;
+	return gl;
 }
 
 
 Typr.GPOS = {};
-Typr.GPOS.parse = function(data, offset, length, font)
-{
-	var bin = Typr._bin;
-	var obj = {};
-	var offset0 = offset;
-	var tableVersion = bin.readFixed(data, offset);  offset += 4;
-	
-	var offScriptList  = bin.readUshort(data, offset);  offset += 2;
-	var offFeatureList = bin.readUshort(data, offset);  offset += 2;
-	var offLookupList  = bin.readUshort(data, offset);  offset += 2;
-	
-	
-	obj.scriptList  = Typr.GPOS.readScriptList (data, offset0 + offScriptList);
-	obj.featureList = Typr.GPOS.readFeatureList(data, offset0 + offFeatureList);
-	obj.lookupList  = Typr.GPOS.readLookupList (data, offset0 + offLookupList);
-	
-	return obj;
-}
+Typr.GPOS.parse = function(data, offset, length, font) {  return Typr._lctf.parse(data, offset, length, font, Typr.GPOS.subt);  }
 
-Typr.GPOS.readLookupList = function(data, offset)
-{
-	var bin = Typr._bin;
-	var offset0 = offset;
-	var obj = [];
-	
-	var count = bin.readUshort(data, offset);  offset+=2;
-	for(var i=0; i<count; i++) 
-	{
-		var noff = bin.readUshort(data, offset);  offset+=2;
-		obj.push(Typr.GPOS.readLookupTable(data, offset0 + noff));
-	}
-	return obj;
-}
 
-Typr.GPOS.readLookupTable = function(data, offset)
-{
-	//console.log("Parsing lookup table", offset);
-	var bin = Typr._bin;
-	var offset0 = offset;
-	var obj = {tabs:[]};
-	
-	obj.type = bin.readUshort(data, offset);  offset+=2;
-	obj.flag = bin.readUshort(data, offset);  offset+=2;
-	var tcount = bin.readUshort(data, offset);  offset+=2;
-	
-	for(var i=0; i<tcount; i++)
-	{
-		var noff = bin.readUshort(data, offset);  offset+=2;
-		
-		var tab;
-		if(obj.type==2) tab = Typr.GPOS.readPairPosTable(data, noff+offset0);//{  console.log("---", noff+offset0);  tab = Typr.GPOS.parseCoverage(data, noff + offset0);  }
-		
-		obj.tabs.push(tab);
-	}
-	//var count = bin.readUshort(data, offset);  offset+=2;
-	return obj;
-}
 
-Typr.GPOS.numOfOnes = function(n)
+Typr.GPOS.subt = function(data, ltype, offset)	// lookup type
 {
-	var num = 0;
-	for(var i=0; i<32; i++) if(((n>>>i)&1) != 0) num++;
-	return num;
-}
-
-Typr.GPOS.readPairPosTable = function(data, offset)
-{
-	var bin = Typr._bin;
-	var offset0 = offset;
-	var tab = {};
+	if(ltype!=2) return null;
+	
+	var bin = Typr._bin, offset0 = offset, tab = {};
 	
 	tab.format  = bin.readUshort(data, offset);  offset+=2;
 	var covOff  = bin.readUshort(data, offset);  offset+=2;
-	tab.coverage = Typr.GPOS.readCoverage(data, covOff+offset0);
+	tab.coverage = Typr._lctf.readCoverage(data, covOff+offset0);
 	tab.valFmt1 = bin.readUshort(data, offset);  offset+=2;
 	tab.valFmt2 = bin.readUshort(data, offset);  offset+=2;
-	var ones1 = Typr.GPOS.numOfOnes(tab.valFmt1);
-	var ones2 = Typr.GPOS.numOfOnes(tab.valFmt2);
+	var ones1 = Typr._lctf.numOfOnes(tab.valFmt1);
+	var ones2 = Typr._lctf.numOfOnes(tab.valFmt2);
 	if(tab.format==1)
 	{
 		tab.pairsets = [];
@@ -702,8 +637,8 @@ Typr.GPOS.readPairPosTable = function(data, offset)
 			{
 				var gid2 = bin.readUshort(data, psoff);  psoff+=2;
 				var value1, value2;
-				if(tab.valFmt1!=0) {  value1 = Typr.GPOS.readValueRecord(data, psoff, tab.valFmt1);  psoff+=ones1*2;  }
-				if(tab.valFmt2!=0) {  value2 = Typr.GPOS.readValueRecord(data, psoff, tab.valFmt2);  psoff+=ones2*2;  }
+				if(tab.valFmt1!=0) {  value1 = Typr._lctf.readValueRecord(data, psoff, tab.valFmt1);  psoff+=ones1*2;  }
+				if(tab.valFmt2!=0) {  value2 = Typr._lctf.readValueRecord(data, psoff, tab.valFmt2);  psoff+=ones2*2;  }
 				arr.push({gid2:gid2, val1:value1, val2:value2});
 			}
 			tab.pairsets.push(arr);
@@ -716,8 +651,8 @@ Typr.GPOS.readPairPosTable = function(data, offset)
 		var class1Count = bin.readUshort(data, offset);  offset+=2;
 		var class2Count = bin.readUshort(data, offset);  offset+=2;
 		
-		tab.classDef1 = Typr.GPOS.readClassDef(data, offset0 + classDef1);
-		tab.classDef2 = Typr.GPOS.readClassDef(data, offset0 + classDef2);
+		tab.classDef1 = Typr._lctf.readClassDef(data, offset0 + classDef1);
+		tab.classDef2 = Typr._lctf.readClassDef(data, offset0 + classDef2);
 		
 		tab.matrix = [];
 		for(var i=0; i<class1Count; i++)
@@ -726,8 +661,8 @@ Typr.GPOS.readPairPosTable = function(data, offset)
 			for(var j=0; j<class2Count; j++)
 			{
 				var value1 = null, value2 = null;
-				if(tab.valFmt1!=0) { value1 = Typr.GPOS.readValueRecord(data, offset, tab.valFmt1);  offset+=ones1*2; }
-				if(tab.valFmt2!=0) { value2 = Typr.GPOS.readValueRecord(data, offset, tab.valFmt2);  offset+=ones2*2; }
+				if(tab.valFmt1!=0) { value1 = Typr._lctf.readValueRecord(data, offset, tab.valFmt1);  offset+=ones1*2; }
+				if(tab.valFmt2!=0) { value2 = Typr._lctf.readValueRecord(data, offset, tab.valFmt2);  offset+=ones2*2; }
 				row.push({val1:value1, val2:value2});
 			}
 			tab.matrix.push(row);
@@ -736,152 +671,106 @@ Typr.GPOS.readPairPosTable = function(data, offset)
 	return tab;
 }
 
-Typr.GPOS.readClassDef = function(data, offset)
-{
-	var bin = Typr._bin;
-	var obj = { start:[], end:[], class:[] };
-	var format = bin.readUshort(data, offset);  offset+=2;
-	if(format==1) 
-	{
-		var startGlyph  = bin.readUshort(data, offset);  offset+=2;
-		var glyphCount  = bin.readUshort(data, offset);  offset+=2;
-		for(var i=0; i<glyphCount; i++)
-		{
-			obj.start.push(startGlyph+i);
-			obj.end  .push(startGlyph+i);
-			obj.class.push(bin.readUshort(data, offset));  offset+=2;
-		}
-	}
-	if(format==2)
-	{
-		var count = bin.readUshort(data, offset);  offset+=2;
-		for(var i=0; i<count; i++)
-		{
-			obj.start.push(bin.readUshort(data, offset));  offset+=2;
-			obj.end  .push(bin.readUshort(data, offset));  offset+=2;
-			obj.class.push(bin.readUshort(data, offset));  offset+=2;
-		}
-	}
-	return obj;
-}
+Typr.GSUB = {};
+Typr.GSUB.parse = function(data, offset, length, font) {  return Typr._lctf.parse(data, offset, length, font, Typr.GSUB.subt);  }
 
-Typr.GPOS.readValueRecord = function(data, offset, valFmt)
-{
-	var bin = Typr._bin;
-	var arr = [];
-	arr.push( (valFmt&1) ? bin.readShort(data, offset) : 0 );  offset += (valFmt&1) ? 2 : 0;
-	arr.push( (valFmt&2) ? bin.readShort(data, offset) : 0 );  offset += (valFmt&2) ? 2 : 0;
-	arr.push( (valFmt&4) ? bin.readShort(data, offset) : 0 );  offset += (valFmt&4) ? 2 : 0;
-	arr.push( (valFmt&8) ? bin.readShort(data, offset) : 0 );  offset += (valFmt&8) ? 2 : 0;
-	return arr;
-}
 
-Typr.GPOS.readCoverage = function(data, offset)
+Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 {
-	var bin = Typr._bin;
-	var tab = [];
-	var format = bin.readUshort(data, offset);  offset+=2;
-	var count  = bin.readUshort(data, offset);  offset+=2;
-	//console.log("parsing coverage", offset-4, format, count);
-	if(format==1)  
-	{
-		for(var i=0; i<count; i++)  tab.push(bin.readUshort(data, offset+i*2)); 
-	}
-	if(format==2)  
-	{
-		for(var i=0; i<count; i++) 
-		{
-			var start = bin.readUshort(data, offset);  offset+=2;
-			var end   = bin.readUshort(data, offset);  offset+=2;
-			var index = bin.readUshort(data, offset);  offset+=2;
-			for(var j=start; j<=end; j++) tab[index++] = j;
+	var bin = Typr._bin, offset0 = offset, tab = {};
+	
+	if(ltype!=1 && ltype!=4) return null;
+	
+	tab.fmt  = bin.readUshort(data, offset);  offset+=2;
+	var covOff  = bin.readUshort(data, offset);  offset+=2;
+	tab.coverage = Typr._lctf.readCoverage(data, covOff+offset0);	// not always is coverage here
+	
+	if(false) {}
+	else if(ltype==1) {
+		if(tab.fmt==1) {
+			tab.delta = bin.readShort(data, offset);  offset+=2;
+		}
+		else if(tab.fmt==2) {
+			var cnt = bin.readUshort(data, offset);  offset+=2;
+			tab.newg = bin.readUshorts(data, offset, cnt);  offset+=tab.newg.length*2;
 		}
 	}
+	else if(ltype==4) {
+		tab.vals = [];
+		var cnt = bin.readUshort(data, offset);  offset+=2;
+		for(var i=0; i<cnt; i++) {
+			var loff = bin.readUshort(data, offset);  offset+=2;
+			tab.vals.push(Typr.GSUB.readLigatureSet(data, offset0+loff));
+		}
+		//console.log(tab.coverage);
+		//console.log(tab.vals);
+	} /*
+	else if(ltype==6) {
+		if(fmt==2) {
+			var btDef = bin.readUshort(data, offset);  offset+=2;
+			var inDef = bin.readUshort(data, offset);  offset+=2;
+			var laDef = bin.readUshort(data, offset);  offset+=2;
+			
+			tab.btDef = Typr._lctf.readClassDef(data, offset0 + btDef);
+			tab.inDef = Typr._lctf.readClassDef(data, offset0 + inDef);
+			tab.laDef = Typr._lctf.readClassDef(data, offset0 + laDef);
+			
+			tab.scset = [];
+			var cnt = bin.readUshort(data, offset);  offset+=2;
+			for(var i=0; i<cnt; i++) {
+				var loff = bin.readUshort(data, offset);  offset+=2;
+				tab.scset.push(Typr.GSUB.readChainSubClassSet(data, offset0+loff));
+			}
+		}
+	} */
+	//if(tab.coverage.indexOf(3)!=-1) console.log(ltype, fmt, tab);
+	
 	return tab;
 }
 
-Typr.GPOS.readFeatureList = function(data, offset)
+Typr.GSUB.readChainSubClassSet = function(data, offset)
 {
-	var bin = Typr._bin;
-	var offset0 = offset;
-	var obj = [];
-	
-	var count = bin.readUshort(data, offset);  offset+=2;
-	
-	for(var i=0; i<count; i++)
-	{
-		var tag = bin.readASCII(data, offset, 4);  offset+=4;
-		var noff = bin.readUshort(data, offset);  offset+=2;
-		obj.push({tag: tag.trim(), tab:Typr.GPOS.readFeatureTable(data, offset0 + noff)});
+	var bin = Typr._bin, offset0 = offset, lset = [];
+	var cnt = bin.readUshort(data, offset);  offset+=2;
+	for(var i=0; i<cnt; i++) {
+		var loff = bin.readUshort(data, offset);  offset+=2;
+		lset.push(Typr.GSUB.readChainSubClassRule(data, offset0+loff));
 	}
-	return obj;
+	return lset;
 }
-
-Typr.GPOS.readFeatureTable = function(data, offset)
+Typr.GSUB.readChainSubClassRule= function(data, offset)
 {
-	var bin = Typr._bin;
-	
-	var featureParams = bin.readUshort(data, offset);  offset+=2;	// = 0
-	var lookupCount = bin.readUshort(data, offset);  offset+=2;
-	
-	var indices = [];
-	for(var i=0; i<lookupCount; i++) indices.push(bin.readUshort(data, offset+2*i));
-	return indices;
-}
-
-
-Typr.GPOS.readScriptList = function(data, offset)
-{
-	var bin = Typr._bin;
-	var offset0 = offset;
-	var obj = {};
-	
-	var count = bin.readUshort(data, offset);  offset+=2;
-	
-	for(var i=0; i<count; i++)
-	{
-		var tag = bin.readASCII(data, offset, 4);  offset+=4;
-		var noff = bin.readUshort(data, offset);  offset+=2;
-		obj[tag.trim()] = Typr.GPOS.readScriptTable(data, offset0 + noff);
+	var bin = Typr._bin, offset0 = offset, rule = {};
+	var pps = ["backtrack", "input", "lookahead"];
+	for(var pi=0; pi<pps.length; pi++) {
+		var cnt = bin.readUshort(data, offset);  offset+=2;  if(pi==1) cnt--;
+		rule[pps[pi]]=bin.readUshorts(data, offset, cnt);  offset+= rule[pps[pi]].length*2;
 	}
-	return obj;
+	var cnt = bin.readUshort(data, offset);  offset+=2;
+	rule.subst = bin.readUshorts(data, offset, cnt*2);  offset += rule.subst.length*2;
+	return rule;
 }
 
-Typr.GPOS.readScriptTable = function(data, offset)
+Typr.GSUB.readLigatureSet = function(data, offset)
 {
-	var bin = Typr._bin;
-	var offset0 = offset;
-	var obj = {};
-	
-	var defLangSysOff = bin.readUshort(data, offset);  offset+=2;
-	obj.default = Typr.GPOS.readLangSysTable(data, offset0 + defLangSysOff);
-	
-	var langSysCount = bin.readUshort(data, offset);  offset+=2;
-	
-	for(var i=0; i<langSysCount; i++)
-	{
-		var tag = bin.readASCII(data, offset, 4);  offset+=4;
-		var langSysOff = bin.readUshort(data, offset);  offset+=2;
-		obj[tag.trim()] = Typr.GPOS.readLangSysTable(data, offset0 + langSysOff);
+	var bin = Typr._bin, offset0 = offset, lset = [];
+	var lcnt = bin.readUshort(data, offset);  offset+=2;
+	for(var j=0; j<lcnt; j++) {
+		var loff = bin.readUshort(data, offset);  offset+=2;
+		lset.push(Typr.GSUB.readLigature(data, offset0+loff));
 	}
-	return obj;
+	return lset;
+}
+Typr.GSUB.readLigature = function(data, offset)
+{
+	var bin = Typr._bin, lig = {chain:[]};
+	lig.nglyph = bin.readUshort(data, offset);  offset+=2;
+	var ccnt = bin.readUshort(data, offset);  offset+=2;
+	for(var k=0; k<ccnt-1; k++) {  lig.chain.push(bin.readUshort(data, offset));  offset+=2;  }
+	return lig;
 }
 
-Typr.GPOS.readLangSysTable = function(data, offset)
-{
-	var bin = Typr._bin;
-	var obj = {};
-	
-	var lookupOrder = bin.readUshort(data, offset);  offset+=2;
-	if(lookupOrder!=0)  throw "lookupOrder not 0";
-	obj.reqFeature = bin.readUshort(data, offset);  offset+=2;
-	//if(obj.reqFeature != 0xffff) throw "reqFeatureIndex != 0xffff";
-	
-	var featureCount = bin.readUshort(data, offset);  offset+=2;
-	obj.features = [];
-	for(var i=0; i<featureCount; i++) obj.features.push(bin.readUshort(data, offset+2*i));
-	return obj;
-}
+
 
 Typr.head = {};
 Typr.head.parse = function(data, offset, length)
@@ -1033,12 +922,12 @@ Typr.loca.parse = function(data, offset, length, font)
 	var obj = [];
 	
 	var ver = font.head.indexToLocFormat;
+	//console.log("loca", ver, length, 4*font.maxp.numGlyphs);
+	var len = font.maxp.numGlyphs+1;
 	
-	for(var i=0; i<font.maxp.numGlyphs+1; i++)
-	{
-		if(ver==0) { obj.push(bin.readUshort(data, offset)*2); offset += 2; }
-		if(ver==1) { obj.push(bin.readUint  (data, offset)  ); offset += 4; }
-	}
+	if(ver==0) for(var i=0; i<len; i++) obj.push(bin.readUshort(data, offset+(i<<1))<<1);
+	if(ver==1) for(var i=0; i<len; i++) obj.push(bin.readUint  (data, offset+(i<<2))   );
+	
 	return obj;
 }
 

@@ -7,11 +7,11 @@ Typr.loca.parse = function(data, offset, length, font)
 	var obj = [];
 	
 	var ver = font.head.indexToLocFormat;
+	//console.log("loca", ver, length, 4*font.maxp.numGlyphs);
+	var len = font.maxp.numGlyphs+1;
 	
-	for(var i=0; i<font.maxp.numGlyphs+1; i++)
-	{
-		if(ver==0) { obj.push(bin.readUshort(data, offset)*2); offset += 2; }
-		if(ver==1) { obj.push(bin.readUint  (data, offset)  ); offset += 4; }
-	}
+	if(ver==0) for(var i=0; i<len; i++) obj.push(bin.readUshort(data, offset+(i<<1))<<1);
+	if(ver==1) for(var i=0; i<len; i++) obj.push(bin.readUint  (data, offset+(i<<2))   );
+	
 	return obj;
 }

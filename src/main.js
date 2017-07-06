@@ -39,11 +39,14 @@ Typr.parse = function(buff)
 		//"gasp"
 		
 		"CFF ",
-		"GPOS"
+		
+		
+		"GPOS",
+		"GSUB"
 		//"VORG",
 		];
 	
-	var obj = {};
+	var obj = {_data:data};
 	//console.log(sfnt_version, numTables, searchRange, entrySelector, rangeShift);
 	
 	var tabs = {};
@@ -62,12 +65,30 @@ Typr.parse = function(buff)
 	for(var i=0; i< tags.length; i++)
 	{
 		var t = tags[i];
+		//console.log(t);
 		//if(tabs[t]) console.log(t, tabs[t].offset, tabs[t].length);
 		if(tabs[t]) obj[t.trim()] = Typr[t.trim()].parse(data, tabs[t].offset, tabs[t].length, obj);
 	}
 	
 	return obj;
 }
+
+Typr._tabOffset = function(data, tab)
+{
+	var bin = Typr._bin;
+	var numTables = bin.readUshort(data, 4);
+	var offset = 12;
+	for(var i=0; i<numTables; i++)
+	{
+		var tag = bin.readASCII(data, offset, 4);   offset += 4;
+		var checkSum = bin.readUint(data, offset);  offset += 4;
+		var toffset = bin.readUint(data, offset);   offset += 4;
+		var length = bin.readUint(data, offset);    offset += 4;
+		if(tag==tab) return toffset;
+	}
+	return 0;
+}
+
 
 
 

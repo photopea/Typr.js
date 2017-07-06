@@ -1,3 +1,5 @@
+
+
 Typr.cmap = {};
 Typr.cmap.parse = function(data, offset, length)
 {
@@ -35,10 +37,10 @@ Typr.cmap.parse = function(data, offset, length)
 			var subt;
 			offs.push(noffset);
 			var format = bin.readUshort(data, noffset);
-			if     (format==0) subt = Typr.cmap.parse0(data, noffset);
-			else if(format==4) subt = Typr.cmap.parse4(data, noffset);
-			else if(format==6) subt = Typr.cmap.parse6(data, noffset);
-			else if(format==12)subt = Typr.cmap.parse12(data,noffset);
+			if     (format== 0) subt = Typr.cmap.parse0(data, noffset);
+			else if(format== 4) subt = Typr.cmap.parse4(data, noffset);
+			else if(format== 6) subt = Typr.cmap.parse6(data, noffset);
+			else if(format==12) subt = Typr.cmap.parse12(data,noffset);
 			else console.log("unknown format: "+format, platformID, encodingID, noffset);
 			obj.tables.push(subt);
 		}
@@ -75,15 +77,12 @@ Typr.cmap.parse4 = function(data, offset)
 	obj.searchRange = bin.readUshort(data, offset);  offset+=2;
 	obj.entrySelector = bin.readUshort(data, offset);  offset+=2;
 	obj.rangeShift = bin.readUshort(data, offset);  offset+=2;
-	obj.endCount = [];
-	for(var i=0; i<segCount; i++) {obj.endCount.push(bin.readUshort(data, offset));  offset+=2;}
-	var reservedPad = bin.readUshort(data, offset);  offset+=2;
-	obj.startCount = [];
-	for(var i=0; i<segCount; i++) {obj.startCount.push(bin.readUshort(data, offset));  offset+=2;}
+	obj.endCount   = bin.readUshorts(data, offset, segCount);  offset += segCount*2;
+	offset+=2;
+	obj.startCount = bin.readUshorts(data, offset, segCount);  offset += segCount*2;
 	obj.idDelta = [];
 	for(var i=0; i<segCount; i++) {obj.idDelta.push(bin.readShort(data, offset));  offset+=2;}
-	obj.idRangeOffset = [];
-	for(var i=0; i<segCount; i++) {obj.idRangeOffset.push(bin.readUshort(data, offset));  offset+=2;}
+	obj.idRangeOffset = bin.readUshorts(data, offset, segCount);  offset += segCount*2;
 	obj.glyphIdArray = [];
 	while(offset< offset0+length) {obj.glyphIdArray.push(bin.readUshort(data, offset));  offset+=2;}
 	return obj;

@@ -7,6 +7,7 @@ Typr.U.codeToGlyph = function(font, code)
 {
 	var cmap = font.cmap;
 	
+	
 	var tind = -1;
 	if(cmap.p0e4!=null) tind = cmap.p0e4;
 	else if(cmap.p3e1!=null) tind = cmap.p3e1;
@@ -24,13 +25,14 @@ Typr.U.codeToGlyph = function(font, code)
 	else if(tab.format==4)
 	{
 		var sind = -1;
-		for(var i=0; i<tab.endCount.length; i++)   if(tab.endCount[i]>=code){  sind=i;  break;  } 
+		for(var i=0; i<tab.endCount.length; i++)   if(code<=tab.endCount[i]){  sind=i;  break;  } 
 		if(sind==-1) return 0;
 		if(tab.startCount[sind]>code) return 0;
 		
-		if(tab.idRangeOffset[sind]!=0)
-			return tab.glyphIdArray[(code-tab.startCount[sind]) + (tab.idRangeOffset[sind]>>1) - (tab.idRangeOffset.length-sind)];
-		else return code + tab.idDelta[sind];
+		var gli = 0;
+		if(tab.idRangeOffset[sind]!=0) gli = tab.glyphIdArray[(code-tab.startCount[sind]) + (tab.idRangeOffset[sind]>>1) - (tab.idRangeOffset.length-sind)];
+		else                           gli = code + tab.idDelta[sind];
+		return gli & 0xFFFF;
 	}
 	else if(tab.format==12)
 	{
@@ -54,16 +56,17 @@ Typr.U.glyphToPath = function(font, gid)
 		var state = {x:0,y:0,stack:[],nStems:0,haveWidth:false,width: font.CFF.Private ? font.CFF.Private.defaultWidthX : 0,open:false};
 		Typr.U._drawCFF(font.CFF.CharStrings[gid], state, font.CFF, path);
 	}
-	if(font.glyf) Typr.U._drawGlyf(gid, font.glyf, path);
+	if(font.glyf) Typr.U._drawGlyf(gid, font, path);
 	return path;
 }
 
-Typr.U._drawGlyf = function(gid, glyf, path)
+Typr.U._drawGlyf = function(gid, font, path)
 {
-	var gl = glyf[gid];
+	var gl = font.glyf[gid];
+	if(gl==null) gl = font.glyf[gid] = Typr.glyf._parseGlyf(font, gid);
 	if(gl!=null){
 		if(gl.noc>-1) Typr.U._simpleGlyph(gl, path);
-		else          Typr.U._compoGlyph (gl, glyf, path);
+		else          Typr.U._compoGlyph (gl, font, path);
 	}
 }
 Typr.U._simpleGlyph = function(gl, p)
@@ -107,13 +110,13 @@ Typr.U._simpleGlyph = function(gl, p)
 		}
 	}
 }
-Typr.U._compoGlyph = function(gl, glyf, p)
+Typr.U._compoGlyph = function(gl, font, p)
 {
 	for(var j=0; j<gl.parts.length; j++)
 	{
 		var path = { cmds:[], crds:[] };
 		var prt = gl.parts[j];
-		Typr.U._drawGlyf(prt.glyphIndex, glyf, path);
+		Typr.U._drawGlyf(prt.glyphIndex, font, path);
 		
 		var m = prt.m;
 		for(var i=0; i<path.crds.length; i+=2)
@@ -144,7 +147,7 @@ Typr.U.getPairAdjustment = function(font, g1, g2)
 			var fl = font.GPOS.featureList[i];
 			if(fl.tag=="kern")
 				for(var j=0; j<fl.tab.length; j++) 
-					if(font.GPOS.lookupList[fl.tab[j]].type==2) ltab=font.GPOS.lookupList[fl.tab[j]];
+					if(font.GPOS.lookupList[fl.tab[j]].ltype==2) ltab=font.GPOS.lookupList[fl.tab[j]];
 		}
 		if(ltab)
 		{
@@ -152,7 +155,7 @@ Typr.U.getPairAdjustment = function(font, g1, g2)
 			for(var i=0; i<ltab.tabs.length; i++)
 			{
 				var tab = ltab.tabs[i];
-				var ind = tab.coverage.indexOf(g1);
+				var ind = Typr._lctf.coverageIndex(tab.coverage, g1);
 				if(ind==-1) continue;
 				var adj;
 				if(tab.format==1)
@@ -184,14 +187,101 @@ Typr.U.getPairAdjustment = function(font, g1, g2)
 	return 0;
 }
 
+Typr.U.stringToGlyphs = function(font, str)
+{
+	var gls = [];
+	for(var i=0; i<str.length; i++) gls.push(Typr.U.codeToGlyph(font, str.charCodeAt(i)));
+	
+	//console.log(gls);  return gls;
+	
+	var gsub = font["GSUB"];  if(gsub==null) return gls;
+	var llist = gsub.lookupList, flist = gsub.featureList;
+	
+	var wsep = "\n\t\" ,.:;!?()  ،";
+	var R = "آأؤإاةدذرزوٱٲٳٵٶٷڈډڊڋڌڍڎڏڐڑڒړڔڕږڗژڙۀۃۄۅۆۇۈۉۊۋۍۏےۓەۮۯܐܕܖܗܘܙܞܨܪܬܯݍݙݚݛݫݬݱݳݴݸݹࡀࡆࡇࡉࡔࡧࡩࡪࢪࢫࢬࢮࢱࢲࢹૅેૉ૊૎૏ૐ૑૒૝ૡ૤૯஁ஃ஄அஉ஌எஏ஑னப஫஬";
+	var L = "ꡲ્૗";
+	
+	for(var ci=0; ci<gls.length; ci++) {
+		var gl = gls[ci];
+		
+		var slft = ci==0            || wsep.indexOf(str[ci-1])!=-1;
+		var srgt = ci==gls.length-1 || wsep.indexOf(str[ci+1])!=-1;
+		
+		if(!slft && R.indexOf(str[ci-1])!=-1) slft=true;
+		if(!srgt && R.indexOf(str[ci  ])!=-1) srgt=true;
+		
+		if(!srgt && L.indexOf(str[ci+1])!=-1) srgt=true;
+		if(!slft && L.indexOf(str[ci  ])!=-1) slft=true;
+		
+		var feat = null;
+		if(slft) feat = srgt ? "isol" : "init";
+		else     feat = srgt ? "fina" : "medi";
+		
+		for(var fi=0; fi<flist.length; fi++)
+		{
+			if(flist[fi].tag!=feat) continue;
+			for(var ti=0; ti<flist[fi].tab.length; ti++)
+			{
+				var tab = llist[flist[fi].tab[ti]];
+				if(tab.ltype!=1) continue;
+				for(var j=0; j<tab.tabs.length; j++)
+				{
+					var ttab = tab.tabs[j];
+					var ind = Typr._lctf.coverageIndex(ttab.coverage,gl);  if(ind==-1) continue;  
+					if(ttab.fmt==0) gls[ci] = ind+ttab.delta;
+					else            gls[ci] = ttab.newg[ind];
+					//console.log(ci, gl, "subst", flist[fi].tag, i, j, ttab.newg[ind]);
+				}
+			}
+		}
+	}
+	var cligs = ["rlig", "liga"];
+	
+	for(var ci=0; ci<gls.length; ci++) {
+		var gl = gls[ci];
+		var rlim = Math.min(3, gls.length-ci-1);
+		for(var fi=0; fi<flist.length; fi++)
+		{
+			
+			var fl = flist[fi];  if(cligs.indexOf(fl.tag)==-1) continue;
+			for(var ti=0; ti<fl.tab.length; ti++)
+			{
+				var tab = llist[fl.tab[ti]];
+				if(tab.ltype!=4) continue;
+				for(var j=0; j<tab.tabs.length; j++)
+				{
+					var ind = Typr._lctf.coverageIndex(tab.tabs[j].coverage, gl);  if(ind==-1) continue;  
+					var vals = tab.tabs[j].vals[ind];
+					
+					for(var k=0; k<vals.length; k++) {
+						var lig = vals[k], rl = lig.chain.length;  if(rl>rlim) continue;
+						var good = true;
+						for(var l=0; l<rl; l++) if(lig.chain[l]!=gls[ci+(1+l)]) good=false;
+						if(!good) continue;
+						gls[ci]=lig.nglyph;
+						for(var l=0; l<rl; l++) gls[ci+l+1]=1;
+						//console.log("lig", fl.tag,  gl, lig.chain, lig.nglyph);
+					}
+				}
+			}
+		}
+	}
+	return gls;
+}
+
 Typr.U.stringToPath = function(font, str)
 {
+	var gls = Typr.U.stringToGlyphs(font, str);
+	
+	//gls = gls.reverse();//gls.slice(0,12).concat(gls.slice(12).reverse());
+	
 	var tpath = {cmds:[], crds:[]};
 	var x = 0;
+	
 	for(var i=0; i<str.length; i++)
 	{
-		var gid = Typr.U.codeToGlyph(font, str.charCodeAt(i));
-		var gid2 = i<str.length-1 ? Typr.U.codeToGlyph(font, str.charCodeAt(i+1)) : 0;
+		var gid = gls[i];
+		var gid2 = i<str.length-1 ? gls[i+1] : 0;
 		var path = Typr.U.glyphToPath(font, gid);
 		
 		for(var j=0; j<path.crds.length; j+=2)

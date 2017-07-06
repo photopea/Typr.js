@@ -89,7 +89,7 @@
 			r.readAsArrayBuffer( e.dataTransfer.files[0] );
 		}
 		
-		function glyphCnt() { return font.glyf ? font.glyf.length : font.CFF.CharStrings.length; }
+		function glyphCnt() {  return font.maxp.numGlyphs;  }
 		
 		function fontLoaded(resp)
 		{
