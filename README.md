@@ -106,7 +106,9 @@ Typr.U.stringToContext = function(font, str, ctx, size, color, x, y)
 
 ## Right-to-left text direction
 
-Typr.U.glyphsToPath methods expect the sequence of characters / glyphs to be in a "view direction" (left to right). It may be different than the logical direction of characters in the memory. Typr.U.stringToGlyphs expects characters in the logical direction.
+There is a "view direction" (left to right) of glyphs, in which they are usually rendered. It may be different than the logical direction of characters in the memory (in which they are written). 
 
-If your text contains e.g. only Arabic / Hebrew text, just reverse the array of glyphs after calling Typr.U.stringToGlyphs, before Typr.U.glyphsToPath. When your text contains both RTL and LTR parts, reorder glyphs according to the Unicode BIDI algorithm (e.g. using [unicode-bidirectional](https://github.com/bbc/unicode-bidirectional)).
+`Typr.U.stringToGlyphs` expects characters to be in the logical direction, while `Typr.U.glyphsToPath` method expects glyphs to be in the "view direction" (left to right).
+
+If your text contains e.g. only Arabic / Hebrew parts, just reverse the array of glyphs before calling `Typr.U.glyphsToPath`. When your text contains both RTL and LTR parts, reorder glyphs according to the Unicode BIDI algorithm (e.g. using [unicode-bidirectional](https://github.com/bbc/unicode-bidirectional)).
 
