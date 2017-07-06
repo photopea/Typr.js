@@ -33,7 +33,13 @@ console.log(font);
 
 * `font`: font object
 * `code`: integer code of the character
-* returns the integer index of the glyph, corresponding to the unicode character
+* returns an integer index of the glyph, corresponding to the unicode character
+
+#### `Typr.U.stringToGlyphs(font, str)`
+
+* `font`: font object
+* `str`: standard JS string
+* returns an array of glyph indices for the string. Calls codeToGlyph() for each character code and performs mandatory glyph substitution (e.g. in Arabic, the same character may need different glyphs at th beginning, in the middle or at the end of a word). Also adds mandatory ligatures.
 
 #### `Typr.U.getPairAdjustment(font, gid1, gid2)`
 
@@ -63,10 +69,10 @@ A "raindrop" shape: `{ cmds:["M","L","Q","L"], crds:[0,0,20,80,0,120,-20,80,0,0]
 
 Since the coordinates are in a separate array, it is very easy to apply affine transformations onto a path, merge paths etc.
 
-#### `Typr.U.stringToPath(font, str)`
+#### `Typr.U.glyphsToPath(font, gls)`
 
 * `font`: font object
-* `str`: the string, wich you want to draw using a font
+* `gls`: the array of glyphs, wich you want to draw using a font
 * returns the vector path of the outline of the string
 
 Note, that all paths returned by `Typr.U` are in font units ( font.head.unitsPerEm ). You must scale them down to convert them to pixels.
@@ -84,7 +90,8 @@ Let's implement a little function for drawing a string:
 ```javascript
 Typr.U.stringToContext = function(font, str, ctx, size, color, x, y)
 {
-  var path = Typr.U.stringToPath(font, str);
+  var gls  = Typr.U.stringToGlyphs(font, str);
+  var path = Typr.U.glyphsToPath  (font, gls);
   var scale = size / font.head.unitsPerEm;
   
   ctx.translate(x,y);  ctx.scale(scale,-scale);
@@ -97,4 +104,9 @@ Typr.U.stringToContext = function(font, str, ctx, size, color, x, y)
 }
 ```
 
+## Right-to-left text direction
+
+Typr.U.glyphsToPath methods expect the sequence of characters / glyphs to be in a "view direction" (left to right). It may be different than the logical direction of characters in the memory. Typr.U.stringToGlyphs expects characters in the logical direction.
+
+If your text contains e.g. only Arabic / Hebrew text, just reverse the array of glyphs after calling Typr.U.stringToGlyphs, before Typr.U.glyphsToPath. When your text contains both RTL and LTR parts, reorder glyphs according to the Unicode BIDI algorithm (e.g. using [unicode-bidirectional](https://github.com/bbc/unicode-bidirectional)).
 
