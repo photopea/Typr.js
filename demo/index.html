@@ -185,7 +185,8 @@
 			
 			var scale = 80 / font.head.unitsPerEm;
 			
-			var path = Typr.U.stringToPath(font, document.getElementById("word").value);
+			var gls = Typr.U.stringToGlyphs(font, document.getElementById("word").value);
+			var path = Typr.U.glyphsToPath(font, gls);
 				
 			cnv.width = cnv.width;
 			ctx.translate(4,100);  

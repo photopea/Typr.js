@@ -269,19 +269,17 @@ Typr.U.stringToGlyphs = function(font, str)
 	return gls;
 }
 
-Typr.U.stringToPath = function(font, str)
-{
-	var gls = Typr.U.stringToGlyphs(font, str);
-	
+Typr.U.glyphsToPath = function(font, gls)
+{	
 	//gls = gls.reverse();//gls.slice(0,12).concat(gls.slice(12).reverse());
 	
 	var tpath = {cmds:[], crds:[]};
 	var x = 0;
 	
-	for(var i=0; i<str.length; i++)
+	for(var i=0; i<gls.length; i++)
 	{
 		var gid = gls[i];
-		var gid2 = i<str.length-1 ? gls[i+1] : 0;
+		var gid2 = i<gls.length-1 ? gls[i+1] : 0;
 		var path = Typr.U.glyphToPath(font, gid);
 		
 		for(var j=0; j<path.crds.length; j+=2)
@@ -291,7 +289,7 @@ Typr.U.stringToPath = function(font, str)
 		}
 		for(var j=0; j<path.cmds.length; j++) tpath.cmds.push(path.cmds[j]);
 		x += font.hmtx.aWidth[gid];
-		if(i<str.length-1) x += Typr.U.getPairAdjustment(font, gid, gid2);
+		if(i<gls.length-1) x += Typr.U.getPairAdjustment(font, gid, gid2);
 	}
 	return tpath;
 }
