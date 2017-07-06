@@ -60,6 +60,7 @@
 		var font;
 		var off = 0, num = 100;
 		var gid = 0;
+		var uncd = null;
 		
 		function load(path, resp)
 		{
@@ -95,6 +96,14 @@
 		{
 			font = Typr.parse(resp);
 			console.log(font);
+			
+			uncd = new Array(glyphCnt());
+			for(var i=0; i<100000; i++)  {
+				var gid = Typr.U.codeToGlyph(font, i);  
+				if(gid==0) continue;
+				if(uncd[gid]==null) uncd[gid]=[i];
+				else uncd[gid].push(i);
+			}
 			
 			off=0;  gid=0;
 			
@@ -167,13 +176,12 @@
 			drawOutline(path, ctx);
 			
 			var props = document.getElementById("properties");
-			var ids = [], hex = [], chars = [];
-			for(var i=0; i<100000; i++)  
-				if(Typr.U.codeToGlyph(font, i)==gid) {  ids.push(i);  var hx=i.toString(16);  while(hx.length<4)hx="0"+hx;  hex.push("#"+hx);  chars.push(String.fromCharCode(i)); 
-														if(ids.length>30) break; }
 			
-			if(ids.length<11)  props.innerHTML = "Unicode: "+ids.join(", ")+" - "+hex.join(", ")+"   <span style=\"font-size:2em\">"+chars.join(", ")+"</span>";
-			else               props.innerHTML = "Unicode: more than 10 codes";
+			var hex = "---", str = "---";
+			var ucode = uncd[gid];
+			if(ucode!=null) {  hex=ucode[0].toString(16);  while(hex.length<4)hex="0"+hex;  str=String.fromCharCode(ucode[0]);   }
+			
+			props.innerHTML = "Unicode: #"+hex+" <span style=\"font-size:2em; margin-left:1em;\"> "+str+"</span>";
 				
 			var tarea = document.getElementById("textarea");
 			tarea.innerHTML = "{\n\"cmds\" : \n"+JSON.stringify(path.cmds)+",\n\n\"crds\" : \n"+JSON.stringify(path.crds)+"\n}";
