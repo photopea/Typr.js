@@ -259,7 +259,7 @@ Typr.U.stringToGlyphs = function(font, str)
 						for(var l=0; l<rl; l++) if(lig.chain[l]!=gls[ci+(1+l)]) good=false;
 						if(!good) continue;
 						gls[ci]=lig.nglyph;
-						for(var l=0; l<rl; l++) gls[ci+l+1]=1;
+						for(var l=0; l<rl; l++) gls[ci+l+1]=-1;
 						//console.log("lig", fl.tag,  gl, lig.chain, lig.nglyph);
 					}
 				}
@@ -278,8 +278,8 @@ Typr.U.glyphsToPath = function(font, gls)
 	
 	for(var i=0; i<gls.length; i++)
 	{
-		var gid = gls[i];
-		var gid2 = i<gls.length-1 ? gls[i+1] : 0;
+		var gid = gls[i];  if(gid==-1) continue;
+		var gid2 = (i<gls.length-1 && gls[i+1]!=-1)  ? gls[i+1] : 0;
 		var path = Typr.U.glyphToPath(font, gid);
 		
 		for(var j=0; j<path.crds.length; j+=2)
