@@ -64,10 +64,11 @@ Typr.js uses the following structure to represent the path:
 * "L": (X,Y) - line from the previous position to X,Y.
 * "Q": (X1,Y1,X2,Y2) - quadratic bézier curve from the previous position to X2,Y2, using X1,Y1 as a control point.
 * "C": (X1,Y1,X2,Y2,X3,Y3) - cubic bézier curve from the previous position to X3,Y3, using X1,Y1 and X2,Y2 as control points.
+* "Z": () - draw a line to the first point to finish the outline.
 
-A "raindrop" shape: `{ cmds:["M","L","Q","L"], crds:[0,0,20,80,0,120,-20,80,0,0] }` (2 + 2 + 4 + 2 coordinates). 
+A "raindrop" shape: `{ cmds:["M","L","Q","L","Z"], crds:[0,0,20,80,0,120,-20,80,0,0] }` (2 + 2 + 4 + 2 + 0 coordinates). 
 
-Since the coordinates are in a separate array, it is very easy to apply affine transformations onto a path, merge paths etc.
+The format is similar to SVG, but commands and coordinates are separated. It is comfortable to work with coordinates as a set of 2D points, apply affine transformations etc.
 
 #### `Typr.U.glyphsToPath(font, gls)`
 
@@ -83,6 +84,10 @@ Note, that all paths returned by `Typr.U` are in font units ( font.head.unitsPer
 * `ctx`: context2d to draw the path into
 
 It executes each command of the path with a corresponding command of context2D: moveTo(), lineTo(), ... It does nothing else (you must do translate(), scale(), fillStyle, fill(), stroke() ... manually).
+
+#### `Typr.U.pathToSVG(path)`
+
+Converts a path to an "SVG path string", which can be used in `<path d="..." />`.
 
 ## Extending Typr
 
