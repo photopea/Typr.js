@@ -108,6 +108,7 @@ Typr.U._simpleGlyph = function(gl, p)
 				else          Typr.U.P.qcurveTo(p, x, y, (x+gl.xs[nx])/2, (y+gl.ys[nx])/2); 
 			}
 		}
+		Typr.U.P.closePath(p);
 	}
 }
 Typr.U._compoGlyph = function(gl, font, p)
@@ -294,6 +295,19 @@ Typr.U.glyphsToPath = function(font, gls)
 	return tpath;
 }
 
+Typr.U.pathToSVG = function(path, prec)
+{
+	if(prec==null) prec = 5;
+	var out = [], co = 0, lmap = {"M":2,"L":2,"Q":4,"C":6};
+	for(var i=0; i<path.cmds.length; i++)
+	{
+		var cmd = path.cmds[i], cn = co+(lmap[cmd]?lmap[cmd]:0);  
+		out.push(cmd);
+		while(co<cn) {  var c = path.crds[co++];  out.push(parseFloat(c.toFixed(prec))+(co==cn?"":" "));  }
+	}
+	return out.join("");
+}
+
 Typr.U.pathToContext = function(path, ctx)
 {
 	var c = 0, crds = path.crds;
@@ -321,6 +335,7 @@ Typr.U.pathToContext = function(path, ctx)
 			ctx.quadraticCurveTo(crds[c], crds[c+1], crds[c+2], crds[c+3]);
 			c+=4;
 		}
+		else if(cmd=="Z")  ctx.closePath();
 	}
 }
 
@@ -342,6 +357,7 @@ Typr.U.P.qcurveTo = function(p, a,b,c,d)
 {
 	p.cmds.push("Q");  p.crds.push(a,b,c,d);
 }
+Typr.U.P.closePath = function(p) {  p.cmds.push("Z");  }
 
 
 
@@ -398,6 +414,7 @@ Typr.U._drawCFF = function(cmds, state, font, p)
                         width = stack.shift() + font.Private.nominalWidthX;
                         haveWidth = true;
                     }
+			if(open) Typr.U.P.closePath(p);
 
                     y += stack.pop();
 					Typr.U.P.moveTo(p,x,y);   open=true;
@@ -548,6 +565,7 @@ Typr.U._drawCFF = function(cmds, state, font, p)
 				
 				//x=state.x; y=state.y; nStems=state.nStems; haveWidth=state.haveWidth; width=state.width;  open=state.open;
 			}
+			if(open) {  Typr.U.P.closePath(p);  open=false;  }
 		}		
 		else if(v=="o19" || v=="o20") 
 		{ 
@@ -576,6 +594,7 @@ Typr.U._drawCFF = function(cmds, state, font, p)
                     y += stack.pop();
                     x += stack.pop();
 					
+					if(open) Typr.U.P.closePath(p);
                     Typr.U.P.moveTo(p,x,y);   open=true;
 		}
 		else if(v=="o22")
@@ -584,8 +603,10 @@ Typr.U._drawCFF = function(cmds, state, font, p)
                         width = stack.shift() + font.Private.nominalWidthX;
                         haveWidth = true;
                     }
-
+					
                     x += stack.pop();
+					
+					if(open) Typr.U.P.closePath(p);
 					Typr.U.P.moveTo(p,x,y);   open=true;                    
 		}
 		else if(v=="o25")

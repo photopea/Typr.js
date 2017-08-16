@@ -72,6 +72,7 @@
 		}
 		
 		function go() {  
+			//load("Cabin-Bold.otf",fontLoaded);  
 			load("LiberationSans-Bold.ttf",fontLoaded);  
 			
 			var node = document.body;
@@ -115,18 +116,19 @@
 		function drawGlyphs()
 		{
 			var cont = document.getElementById("glyphcont");  cont.innerHTML = "";
-			var cnv = document.createElement("canvas");  cnv.width = 40;  cnv.height = 60;
+			var cnv = document.createElement("canvas");  cnv.width = Math.floor(getDPR()*40);  cnv.height = Math.floor(getDPR()*60);  //scaleCnv(cnv);
 			var ctx = cnv.getContext("2d");
 			ctx.font="20px sans";
 			
 			var lim = Math.min(off+num, glyphCnt());
-			var scale = 32 / font.head.unitsPerEm;
+			var scale = 32*getDPR() / font.head.unitsPerEm;
 			for(var i=off; i<lim; i++)
 			{
 				var path = Typr.U.glyphToPath(font, i);
 				
 				cnv.width = cnv.width;
-				ctx.translate(10,36);  
+				//ctx.scale(getDPR(), getDPR());
+				ctx.translate(10*getDPR(),Math.round(36*getDPR()));  
 				
 				ctx.fillStyle = "#ff0000";
 				ctx.fillRect(0,0,cnv.width,1);
@@ -139,6 +141,7 @@
 				ctx.fill();
 				
 				var img = document.createElement("img");
+				img.setAttribute("style", "width:"+(cnv.width/getDPR())+"px; height:"+(cnv.height/getDPR())+"px");
 				img.gid = i;
 				img.onclick = glyphClick;
 				img.src = cnv.toDataURL();
@@ -148,11 +151,12 @@
 		
 		function drawGlyph()
 		{
-			var cnv = document.getElementById("maincanvas");  cnv.width = 400;  cnv.height = 400;
+			var cnv = document.getElementById("maincanvas");  cnv.width = Math.floor(getDPR()*400);  cnv.height = Math.floor(getDPR()*400);
+			scaleCnv(cnv);
 			var ctx = cnv.getContext("2d");
 			ctx.font="20px sans";
 			
-			var scale = 340 / font.head.unitsPerEm;
+			var scale = 340*getDPR() / font.head.unitsPerEm;
 				
 			var path = Typr.U.glyphToPath(font, gid);
 				
@@ -188,13 +192,16 @@
 		}
 		function drawWord(e)
 		{
-			var cnv = document.getElementById("wordcanvas");  cnv.width = 800;  cnv.height = 160;
+			var cnv = document.getElementById("wordcanvas");  cnv.width = Math.floor(800*getDPR());  cnv.height = Math.floor(130*getDPR());
+			scaleCnv(cnv);
 			var ctx = cnv.getContext("2d");
 			
-			var scale = 80 / font.head.unitsPerEm;
+			var scale = 80*getDPR() / font.head.unitsPerEm;
 			
 			var gls = Typr.U.stringToGlyphs(font, document.getElementById("word").value);
 			var path = Typr.U.glyphsToPath(font, gls);
+			
+			//var spath = document.getElementById("svgp");  spath.setAttribute("d", Typr.U.pathToSVG(path));
 				
 			cnv.width = cnv.width;
 			ctx.translate(4,100);  
@@ -219,15 +226,8 @@
 			
 			ctx.lineWidth = w;
 			ctx.strokeStyle = "#00ffff";
-			ctx.beginPath();
-			for(var i=0; i<path.cmds.length; i++)
-			{
-				var cmd = path.cmds[i];
-				if(cmd=="M") { ctx.moveTo(crds[ci],crds[ci+1]);  ci+=2;  }
-				if(cmd=="L") { ctx.lineTo(crds[ci],crds[ci+1]);  ci+=2;  }
-				if(cmd=="Q") { ctx.lineTo(crds[ci],crds[ci+1]); ctx.lineTo(crds[ci+2],crds[ci+3]);  ci+=4;  }
-				if(cmd=="C") { ctx.lineTo(crds[ci],crds[ci+1]); ctx.lineTo(crds[ci+2],crds[ci+3]);  ctx.lineTo(crds[ci+4],crds[ci+5]);  ci+=6;  }
-			}
+			Typr.U.pathToContext(path,ctx);
+			
 			ctx.stroke();
 			
 			var ss = w*4;
@@ -238,7 +238,8 @@
 		function drawPrev() {  if(off>0) off = off-num;               drawGlyphs();  }
 		function drawNext() {  if(off+num<glyphCnt()) off = off+num;  drawGlyphs();  }
 		function glyphClick(e){ gid = e.target.gid;  drawGlyph(); }
-		
+		function getDPR() { return window["devicePixelRatio"] || 1; }
+		function scaleCnv(cnv) {  cnv.setAttribute("style", "width:"+(cnv.width/getDPR())+"px; height:"+(cnv.height/getDPR())+"px");  }
 	</script>
 </head>
 <body onload="go();">
@@ -260,7 +261,7 @@
 	</div>
 	
 	
-	<input id="word" type="text" value="Enter the text" style="font-size:1.5em; width:100%; margin-top:1em;" oninput="drawWord()"></input>
+	<input id="word" type="text" value="Photopea" style="font-size:1.5em; width:100%; margin-top:1em;" oninput="drawWord()"></input>
 	<canvas id="wordcanvas"></canvas>
 	
 </div>
