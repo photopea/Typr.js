@@ -77,3 +77,5 @@ Typr.parse = function (buff) {
 }
 
 module.exports = Typr;
+
+window.Typr = Typr;

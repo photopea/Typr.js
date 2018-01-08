@@ -1,3 +1,6 @@
+// Require modules
+var _lctf = require('../lctf.js');
+
 var GPOS = {};
 GPOS.parse = function (data, offset, length, font) { return _lctf.parse(data, offset, length, font, GPOS.subt); }
 

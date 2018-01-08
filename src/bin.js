@@ -87,6 +87,7 @@ _bin = {
 };
 
 var ab = new ArrayBuffer(8);
+_bin.t = {};
 _bin.t.int8 = new Int8Array(ab);
 _bin.t.uint8 = new Uint8Array(ab);
 _bin.t.int16 = new Int16Array(ab);

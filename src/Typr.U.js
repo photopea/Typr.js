@@ -1,5 +1,6 @@
 // Require modules
 var tabs = require('./tabs.js');
+var _lctf = require('./lctf.js');
 
 // Create utility
 var utility = {};
@@ -65,7 +66,7 @@ utility.glyphToPath = function (font, gid) {
 
 utility._drawGlyf = function (gid, font, path) {
   var gl = font.glyf[gid];
-  if (gl == null) gl = font.glyf[gid] = glyf._parseGlyf(font, gid);
+  if (gl == null) gl = font.glyf[gid] = tabs.glyf._parseGlyf(font, gid);
   if (gl != null) {
     if (gl.noc > -1) utility._simpleGlyph(gl, path);
     else utility._compoGlyph(gl, font, path);
@@ -701,3 +702,5 @@ utility._drawCFF = function (cmds, state, font, p) {
 }
 
 module.exports = utility;
+
+window.Typr.U = utility;

@@ -13,9 +13,7 @@ gulp.task('umd', function (cb) {
     //basedir: './src',
     entries: [
       './src/Typr.js',
-      './src/bin.js',
-      './src/lctf.js',
-      './src/tabs.js'
+      './src/Typr.U.js'
     ],
     debug: true
     // defining transforms here will avoid crashing your stream

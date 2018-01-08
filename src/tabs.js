@@ -1,9 +1,9 @@
 module.exports = {
   cff: require('./tabs/cff.js'),
   cmap: require('./tabs/cmap.js'),
-  glyp: require('./tabs/glyf.js'),
-  gpos: require('./tabs/GPOS.js'),
-  gsub: require('./tabs/GSUB.js'),
+  glyf: require('./tabs/glyf.js'),
+  GPOS: require('./tabs/GPOS.js'),
+  GSUB: require('./tabs/GSUB.js'),
   head: require('./tabs/head.js'),
   hhea: require('./tabs/hhea.js'),
   hmtx: require('./tabs/hmtx.js'),
@@ -11,6 +11,6 @@ module.exports = {
   loca: require('./tabs/loca.js'),
   maxp: require('./tabs/maxp.js'),
   name: require('./tabs/name.js'),
-  os2: require('./tabs/os-2.js'),
+  ['OS/2']: require('./tabs/os-2.js'),
   post: require('./tabs/post.js')
 }

@@ -52,8 +52,9 @@
 		</style>
 
 
-	<script type="text/javascript" src="../src/Typr.js"></script>
-	<script type="text/javascript" src="../src/Typr.U.js"></script>
+	<!--<script type="text/javascript" src="../src/Typr.js"></script>-->
+	<!--<script type="text/javascript" src="../src/Typr.U.js"></script>-->
+	<script type="text/javascript" src="../build/bundle.js"></script>
 		
 	<script type="text/javascript">
 	
@@ -96,7 +97,6 @@
 		function fontLoaded(resp)
 		{
 			font = Typr.parse(resp);
-			console.log(font);
 			
 			uncd = new Array(glyphCnt());
 			for(var i=0; i<100000; i++)  {

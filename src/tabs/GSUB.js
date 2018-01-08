@@ -1,3 +1,6 @@
+// Require modules
+var _lctf = require('../lctf.js');
+
 var GSUB = {};
 GSUB.parse = function (data, offset, length, font) { return _lctf.parse(data, offset, length, font, GSUB.subt); }
 
