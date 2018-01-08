@@ -2,8 +2,10 @@
 const gulp = require('gulp');
 const umd = require('gulp-umd');
 const browserify = require('browserify');
+const uglify = require('gulp-uglify');
 const source = require('vinyl-source-stream');
 const buffer = require('vinyl-buffer');
+const gutil = require('gulp-util');
 
 // Build task
 gulp.task('umd', function (cb) {
@@ -20,16 +22,17 @@ gulp.task('umd', function (cb) {
     //transform: [reactify]
 
   }).bundle()
-    .on('error', function (err) {
-      console.error(err.stack);
-      this.emit('end');
-    })
     .pipe(source('bundle.js'))
-    //.pipe(buffer())
+    .pipe(buffer())
     //.pipe(sourcemaps.init({loadMaps: true}))
     // Add transformation tasks to the pipeline here.
     //.pipe(uglify())
     //.on('error', log.error)
     //.pipe(sourcemaps.write('./'))
+    .on('error', function (err) {
+      gutil.log(gutil.colors.red('[Error]'), err.toString());
+      //console.error(err.stack);
+      this.emit('end');
+    })
     .pipe(gulp.dest('./build/'));
 });
