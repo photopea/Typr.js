@@ -23,5 +23,13 @@
   "bugs": {
     "url": "https://github.com/photopea/Typr.js/issues"
   },
-  "homepage": "https://github.com/photopea/Typr.js#readme"
+  "homepage": "https://github.com/photopea/Typr.js#readme",
+  "devDependencies": {
+    "browserify": "^15.0.0",
+    "gulp": "^3.9.1",
+    "gulp-requirejs": "^1.0.0",
+    "gulp-umd": "^0.2.1",
+    "vinyl-buffer": "^1.0.1",
+    "vinyl-source-stream": "^2.0.0"
+  }
 }
