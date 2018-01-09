@@ -11,6 +11,6 @@ module.exports = {
   loca: require('./tabs/loca.js'),
   maxp: require('./tabs/maxp.js'),
   name: require('./tabs/name.js'),
-  ['OS/2']: require('./tabs/os-2.js'),
+  'OS/2': require('./tabs/os-2.js'),
   post: require('./tabs/post.js')
 }
