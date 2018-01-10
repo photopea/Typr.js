@@ -703,4 +703,6 @@ utility._drawCFF = function (cmds, state, font, p) {
 
 module.exports = utility;
 
-window.Typr.U = utility;
+if (typeof window !== 'undefined' && window.Typr) {
+  window.Typr.U = utility;
+}

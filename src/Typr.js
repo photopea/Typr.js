@@ -78,4 +78,6 @@ Typr.parse = function (buff) {
 
 module.exports = Typr;
 
-window.Typr = Typr;
+if (typeof window !== 'undefined') {
+  window.Typr = Typr;
+}
