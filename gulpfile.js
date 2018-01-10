@@ -14,8 +14,7 @@ gulp.task('umd', function (cb) {
   return browserify({
     //basedir: './src',
     entries: [
-      './src/Typr.js',
-      './src/Typr.U.js'
+      './src/Typr.js'
     ],
     debug: true
     // defining transforms here will avoid crashing your stream
