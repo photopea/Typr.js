@@ -1,5 +1,5 @@
 module.exports = {
-  cff: require('./tabs/cff.js'),
+  CFF: require('./tabs/cff.js'),
   cmap: require('./tabs/cmap.js'),
   glyf: require('./tabs/glyf.js'),
   GPOS: require('./tabs/GPOS.js'),
