@@ -26,6 +26,7 @@
   "homepage": "https://github.com/photopea/Typr.js#readme",
   "devDependencies": {
     "browserify": "^15.0.0",
+    "canvas": "^1.6.9",
     "gulp": "^3.9.1",
     "gulp-requirejs": "^1.0.0",
     "gulp-uglify": "^3.0.0",
