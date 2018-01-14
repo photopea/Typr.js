@@ -1,269 +1,301 @@
 <html>
 <head>
-		<meta charset="utf-8" />
-		<title>Typr.js Demo</title>
-		
-		<style type="text/css">
-			body {
-				font-family:sans-serif;
-				background-color: #ceedf4;
-				margin:0;
-				padding:0;
-				line-height:1.6em;
-				color: rgb(51, 51, 51);
-			}
-			pre{
-				background-color: rgba(0,0,0,0.04);
-				padding:1em;
-				font-size:1.2em;
-				tab-size: 4;
-			}
-			code {
-				background-color: rgba(0, 0, 0, 0.04);
-				font-size:1.2em;
-				padding: 0.1em 0.2em;
-			}
-			h1 {
-				font-size: 3em;
-				margin: 0;
-				padding: 0.7em;
-				color:#ffffff;
-				text-align:center;
-				background-image: linear-gradient(rgb(84, 180, 235), rgb(47, 164, 231));
-			}
-			h2 { 
-				font-size: 1.8em;
-				margin-top:1.5em; 
-				margin-bottom: 1em;
-				padding-bottom: 0.4em;
-				border-bottom-color: rgb(238, 238, 238);
-				border-bottom-style: solid;
-				border-bottom-width: 1px;
-			}
-			h3 { margin-top:1.0em; margin-bottom: 0.5em;}  
-			p  { margin: 0 0 1em 0;}
-			.main {
-				margin:0 auto;
-				max-width: 50em;
-				
-				padding:0.5em 2em;
-				background-color: #ffffff;
-			}
-		</style>
+  <meta charset="utf-8"/>
+  <title>Typr.js Demo</title>
 
+  <style type="text/css">
+    body {
+      font-family: sans-serif;
+      background-color: #ceedf4;
+      margin: 0;
+      padding: 0;
+      line-height: 1.6em;
+      color: rgb(51, 51, 51);
+    }
 
-	<!--<script type="text/javascript" src="../src/Typr.js"></script>-->
-	<!--<script type="text/javascript" src="../src/Typr.U.js"></script>-->
-	<script type="text/javascript" src="../build/bundle.js"></script>
-		
-	<script type="text/javascript">
-	
-		var font;
-		var off = 0, num = 100;
-		var gid = 0;
-		var uncd = null;
-		
-		function load(path, resp)
-		{
-			var request = new XMLHttpRequest();
-			request.open("GET", path, true);
-			request.responseType = "arraybuffer";
-			request.onload = function(e){resp(e.target.response);};
-			request.send();
-		}
-		
-		function go() {  
-			//load("Cabin-Bold.otf",fontLoaded);  
-			load("LiberationSans-Bold.ttf",fontLoaded);  
-			
-			var node = document.body;
-			node.addEventListener("drop", onDrop, false);
-			node.addEventListener("dragenter", cancel, false);
-			node.addEventListener("dragleave", cancel, false);
-			node.addEventListener("dragover",  cancel, false);
-		}
-		function cancel(e) {  e.stopPropagation(); e.preventDefault();  }
-		
-		function onDrop(e)
-		{  
-			cancel(e);
-			var r = new FileReader();
-			r.onload = function(e) { fontLoaded(e.target.result); };
-			r.readAsArrayBuffer( e.dataTransfer.files[0] );
-		}
-		
-		function glyphCnt() {  return font.maxp.numGlyphs;  }
-		
-		function fontLoaded(resp)
-		{
-			font = Typr.parse(resp);
-			
-			uncd = new Array(glyphCnt());
-			for(var i=0; i<100000; i++)  {
-				var gid = Typr.U.codeToGlyph(font, i);  
-				if(gid==0) continue;
-				if(uncd[gid]==null) uncd[gid]=[i];
-				else uncd[gid].push(i);
-			}
-			
-			off=0;  gid=0;
-			
-			drawGlyphs();
-			drawGlyph();
-			drawWord();
-		}
-		
-		function drawGlyphs()
-		{
-			var cont = document.getElementById("glyphcont");  cont.innerHTML = "";
-			var cnv = document.createElement("canvas");  cnv.width = Math.floor(getDPR()*40);  cnv.height = Math.floor(getDPR()*60);  //scaleCnv(cnv);
-			var ctx = cnv.getContext("2d");
-			ctx.font="20px sans";
-			
-			var lim = Math.min(off+num, glyphCnt());
-			var scale = 32*getDPR() / font.head.unitsPerEm;
-			for(var i=off; i<lim; i++)
-			{
-				var path = Typr.U.glyphToPath(font, i);
-				
-				cnv.width = cnv.width;
-				//ctx.scale(getDPR(), getDPR());
-				ctx.translate(10*getDPR(),Math.round(36*getDPR()));  
-				
-				ctx.fillStyle = "#ff0000";
-				ctx.fillRect(0,0,cnv.width,1);
-				
-				ctx.fillStyle = "#333333";
-				ctx.fillText(i,0,20);
-				
-				ctx.scale(scale,-scale);
-				Typr.U.pathToContext(path, ctx);
-				ctx.fill();
-				
-				var img = document.createElement("img");
-				img.setAttribute("style", "width:"+(cnv.width/getDPR())+"px; height:"+(cnv.height/getDPR())+"px");
-				img.gid = i;
-				img.onclick = glyphClick;
-				img.src = cnv.toDataURL();
-				cont.appendChild(img);
-			}
-		}
-		
-		function drawGlyph()
-		{
-			var cnv = document.getElementById("maincanvas");  cnv.width = Math.floor(getDPR()*400);  cnv.height = Math.floor(getDPR()*400);
-			scaleCnv(cnv);
-			var ctx = cnv.getContext("2d");
-			ctx.font="20px sans";
-			
-			var scale = 340*getDPR() / font.head.unitsPerEm;
-				
-			var path = Typr.U.glyphToPath(font, gid);
-				
-			cnv.width = cnv.width;
-			ctx.translate(50,320);  
-				
-			ctx.fillStyle = "#ff0000";
-			ctx.fillRect(0,0,cnv.width,1);
-			ctx.fillRect(0,-Math.round(font.hhea.ascender *scale),cnv.width,1);
-			ctx.fillRect(0,-Math.round(font.hhea.descender*scale),cnv.width,1);
-			
-			ctx.scale(scale,-scale);
-			
-			ctx.lineWidth = 5/scale;
-			ctx.strokeStyle = "#003377";
-			ctx.fillStyle = "#999999";
-			Typr.U.pathToContext(path, ctx);
-			ctx.fill();
-			ctx.stroke();
-			
-			drawOutline(path, ctx);
-			
-			var props = document.getElementById("properties");
-			
-			var hex = "---", str = "---";
-			var ucode = uncd[gid];
-			if(ucode!=null) {  hex=ucode[0].toString(16);  while(hex.length<4)hex="0"+hex;  str=String.fromCharCode(ucode[0]);   }
-			
-			props.innerHTML = "Unicode: #"+hex+" <span style=\"font-size:2em; margin-left:1em;\"> "+str+"</span>";
-				
-			var tarea = document.getElementById("textarea");
-			tarea.innerHTML = "{\n\"cmds\" : \n"+JSON.stringify(path.cmds)+",\n\n\"crds\" : \n"+JSON.stringify(path.crds)+"\n}";
-		}
-		function drawWord(e)
-		{
-			var cnv = document.getElementById("wordcanvas");  cnv.width = Math.floor(800*getDPR());  cnv.height = Math.floor(130*getDPR());
-			scaleCnv(cnv);
-			var ctx = cnv.getContext("2d");
-			
-			var scale = 80*getDPR() / font.head.unitsPerEm;
-			
-			var gls = Typr.U.stringToGlyphs(font, document.getElementById("word").value);
-			var path = Typr.U.glyphsToPath(font, gls);
-			
-			//var spath = document.getElementById("svgp");  spath.setAttribute("d", Typr.U.pathToSVG(path));
-				
-			cnv.width = cnv.width;
-			ctx.translate(4,100);  
-				
-			ctx.fillStyle = "#ff0000";
-			ctx.fillRect(0,0,cnv.width,1);
-			ctx.fillRect(0,-Math.round(font.hhea.ascender *scale),cnv.width,1);
-			ctx.fillRect(0,-Math.round(font.hhea.descender*scale),cnv.width,1);
-			
-			ctx.scale(scale,-scale);
-			
-			ctx.fillStyle = "#333";
-			Typr.U.pathToContext(path, ctx);
-			ctx.fill();
-		}
-		
-		function drawOutline(path, ctx)
-		{
-			var ci=0, x=0, y=0;
-			var crds = path.crds;
-			var w = 0.0025 * font.head.unitsPerEm;
-			
-			ctx.lineWidth = w;
-			ctx.strokeStyle = "#00ffff";
-			Typr.U.pathToContext(path,ctx);
-			
-			ctx.stroke();
-			
-			var ss = w*4;
-			ctx.fillStyle = "#ff0055";
-			for(var i=0; i<crds.length; i+=2) ctx.fillRect(crds[i]-ss,crds[i+1]-ss,2*ss,2*ss); 
-		}
-		
-		function drawPrev() {  if(off>0) off = off-num;               drawGlyphs();  }
-		function drawNext() {  if(off+num<glyphCnt()) off = off+num;  drawGlyphs();  }
-		function glyphClick(e){ gid = e.target.gid;  drawGlyph(); }
-		function getDPR() { return window["devicePixelRatio"] || 1; }
-		function scaleCnv(cnv) {  cnv.setAttribute("style", "width:"+(cnv.width/getDPR())+"px; height:"+(cnv.height/getDPR())+"px");  }
-	</script>
+    pre {
+      background-color: rgba(0, 0, 0, 0.04);
+      padding: 1em;
+      font-size: 1.2em;
+      tab-size: 4;
+    }
+
+    code {
+      background-color: rgba(0, 0, 0, 0.04);
+      font-size: 1.2em;
+      padding: 0.1em 0.2em;
+    }
+
+    h1 {
+      font-size: 3em;
+      margin: 0;
+      padding: 0.7em;
+      color: #ffffff;
+      text-align: center;
+      background-image: linear-gradient(rgb(84, 180, 235), rgb(47, 164, 231));
+    }
+
+    h2 {
+      font-size: 1.8em;
+      margin-top: 1.5em;
+      margin-bottom: 1em;
+      padding-bottom: 0.4em;
+      border-bottom-color: rgb(238, 238, 238);
+      border-bottom-style: solid;
+      border-bottom-width: 1px;
+    }
+
+    h3 {
+      margin-top: 1.0em;
+      margin-bottom: 0.5em;
+    }
+
+    p {
+      margin: 0 0 1em 0;
+    }
+
+    .main {
+      margin: 0 auto;
+      max-width: 50em;
+
+      padding: 0.5em 2em;
+      background-color: #ffffff;
+    }
+  </style>
+
+  <script type="text/javascript" src="../build/typr.js"></script>
+
+  <script type="text/javascript">
+
+    var font;
+    var off = 0, num = 100;
+    var gid = 0;
+    var uncd = null;
+
+    function load (path, resp) {
+      var request = new XMLHttpRequest();
+      request.open("GET", path, true);
+      request.responseType = "arraybuffer";
+      request.onload = function (e) {resp(e.target.response);};
+      request.send();
+    }
+
+    function go () {
+      //load("Cabin-Bold.otf",fontLoaded);
+      load("LiberationSans-Bold.ttf", fontLoaded);
+
+      var node = document.body;
+      node.addEventListener("drop", onDrop, false);
+      node.addEventListener("dragenter", cancel, false);
+      node.addEventListener("dragleave", cancel, false);
+      node.addEventListener("dragover", cancel, false);
+    }
+
+    function cancel (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+
+    function onDrop (e) {
+      cancel(e);
+      var r = new FileReader();
+      r.onload = function (e) { fontLoaded(e.target.result); };
+      r.readAsArrayBuffer(e.dataTransfer.files[0]);
+    }
+
+    function glyphCnt () { return font.maxp.numGlyphs; }
+
+    function fontLoaded (resp) {
+      font = Typr.parse(resp);
+
+      uncd = new Array(glyphCnt());
+      for (var i = 0; i < 100000; i++) {
+        var gid = Typr.U.codeToGlyph(font, i);
+        if (gid == 0) continue;
+        if (uncd[gid] == null) uncd[gid] = [i];
+        else uncd[gid].push(i);
+      }
+
+      off = 0;
+      gid = 0;
+
+      drawGlyphs();
+      drawGlyph();
+      drawWord();
+    }
+
+    function drawGlyphs () {
+      var cont = document.getElementById("glyphcont");
+      cont.innerHTML = "";
+      var cnv = document.createElement("canvas");
+      cnv.width = Math.floor(getDPR() * 40);
+      cnv.height = Math.floor(getDPR() * 60);  //scaleCnv(cnv);
+      var ctx = cnv.getContext("2d");
+      ctx.font = "20px sans";
+
+      var lim = Math.min(off + num, glyphCnt());
+      var scale = 32 * getDPR() / font.head.unitsPerEm;
+      for (var i = off; i < lim; i++) {
+        var path = Typr.U.glyphToPath(font, i);
+
+        cnv.width = cnv.width;
+        //ctx.scale(getDPR(), getDPR());
+        ctx.translate(10 * getDPR(), Math.round(36 * getDPR()));
+
+        ctx.fillStyle = "#ff0000";
+        ctx.fillRect(0, 0, cnv.width, 1);
+
+        ctx.fillStyle = "#333333";
+        ctx.fillText(i, 0, 20);
+
+        ctx.scale(scale, -scale);
+        Typr.U.pathToContext(path, ctx);
+        ctx.fill();
+
+        var img = document.createElement("img");
+        img.setAttribute("style", "width:" + (cnv.width / getDPR()) + "px; height:" + (cnv.height / getDPR()) + "px");
+        img.gid = i;
+        img.onclick = glyphClick;
+        img.src = cnv.toDataURL();
+        cont.appendChild(img);
+      }
+    }
+
+    function drawGlyph () {
+      var cnv = document.getElementById("maincanvas");
+      cnv.width = Math.floor(getDPR() * 400);
+      cnv.height = Math.floor(getDPR() * 400);
+      scaleCnv(cnv);
+      var ctx = cnv.getContext("2d");
+      ctx.font = "20px sans";
+
+      var scale = 340 * getDPR() / font.head.unitsPerEm;
+
+      var path = Typr.U.glyphToPath(font, gid);
+
+      cnv.width = cnv.width;
+      ctx.translate(50, 320);
+
+      ctx.fillStyle = "#ff0000";
+      ctx.fillRect(0, 0, cnv.width, 1);
+      ctx.fillRect(0, -Math.round(font.hhea.ascender * scale), cnv.width, 1);
+      ctx.fillRect(0, -Math.round(font.hhea.descender * scale), cnv.width, 1);
+
+      ctx.scale(scale, -scale);
+
+      ctx.lineWidth = 5 / scale;
+      ctx.strokeStyle = "#003377";
+      ctx.fillStyle = "#999999";
+      Typr.U.pathToContext(path, ctx);
+      ctx.fill();
+      ctx.stroke();
+
+      drawOutline(path, ctx);
+
+      var props = document.getElementById("properties");
+
+      var hex = "---", str = "---";
+      var ucode = uncd[gid];
+      if (ucode != null) {
+        hex = ucode[0].toString(16);
+        while (hex.length < 4) hex = "0" + hex;
+        str = String.fromCharCode(ucode[0]);
+      }
+
+      props.innerHTML = "Unicode: #" + hex + " <span style=\"font-size:2em; margin-left:1em;\"> " + str + "</span>";
+
+      var tarea = document.getElementById("textarea");
+      tarea.innerHTML = "{\n\"cmds\" : \n" + JSON.stringify(path.cmds) + ",\n\n\"crds\" : \n" + JSON.stringify(path.crds) + "\n}";
+    }
+
+    function drawWord (e) {
+      var cnv = document.getElementById("wordcanvas");
+      cnv.width = Math.floor(800 * getDPR());
+      cnv.height = Math.floor(130 * getDPR());
+      scaleCnv(cnv);
+      var ctx = cnv.getContext("2d");
+
+      var scale = 80 * getDPR() / font.head.unitsPerEm;
+
+      var gls = Typr.U.stringToGlyphs(font, document.getElementById("word").value);
+      var path = Typr.U.glyphsToPath(font, gls);
+
+      //var spath = document.getElementById("svgp");  spath.setAttribute("d", Typr.U.pathToSVG(path));
+
+      cnv.width = cnv.width;
+      ctx.translate(4, 100);
+
+      ctx.fillStyle = "#ff0000";
+      ctx.fillRect(0, 0, cnv.width, 1);
+      ctx.fillRect(0, -Math.round(font.hhea.ascender * scale), cnv.width, 1);
+      ctx.fillRect(0, -Math.round(font.hhea.descender * scale), cnv.width, 1);
+
+      ctx.scale(scale, -scale);
+
+      ctx.fillStyle = "#333";
+      Typr.U.pathToContext(path, ctx);
+      ctx.fill();
+    }
+
+    function drawOutline (path, ctx) {
+      var ci = 0, x = 0, y = 0;
+      var crds = path.crds;
+      var w = 0.0025 * font.head.unitsPerEm;
+
+      ctx.lineWidth = w;
+      ctx.strokeStyle = "#00ffff";
+      Typr.U.pathToContext(path, ctx);
+
+      ctx.stroke();
+
+      var ss = w * 4;
+      ctx.fillStyle = "#ff0055";
+      for (var i = 0; i < crds.length; i += 2) ctx.fillRect(crds[i] - ss, crds[i + 1] - ss, 2 * ss, 2 * ss);
+    }
+
+    function drawPrev () {
+      if (off > 0) off = off - num;
+      drawGlyphs();
+    }
+
+    function drawNext () {
+      if (off + num < glyphCnt()) off = off + num;
+      drawGlyphs();
+    }
+
+    function glyphClick (e) {
+      gid = e.target.gid;
+      drawGlyph();
+    }
+
+    function getDPR () { return window["devicePixelRatio"] || 1; }
+
+    function scaleCnv (cnv) { cnv.setAttribute("style", "width:" + (cnv.width / getDPR()) + "px; height:" + (cnv.height / getDPR()) + "px"); }
+  </script>
 </head>
 <body onload="go();">
 
-	<h1>Typr.js demo</h1>
-		
+<h1>Typr.js demo</h1>
+
 <div class="main">
-	<button type="button" onclick="drawPrev()">Previous 100</button>  <button type="button" onclick="drawNext()">Next 100</button>
-	<b style="float:right">Drag and drop your own font!</b>
-	<div id="glyphcont"></div>
-	
-	
-	<div style="margin-top:1em">
-		<canvas id="maincanvas" style="float:left"></canvas>
-		<div style="float:left">
-			<div id="properties"></div>
-			<textarea id="textarea" style="width:380px;height:350px"> Path code </textarea>
-		</div>
-	</div>
-	
-	
-	<input id="word" type="text" value="Photopea" style="font-size:1.5em; width:100%; margin-top:1em;" oninput="drawWord()"></input>
-	<canvas id="wordcanvas"></canvas>
-	
+  <button type="button" onclick="drawPrev()">Previous 100</button>
+  <button type="button" onclick="drawNext()">Next 100</button>
+  <b style="float:right">Drag and drop your own font!</b>
+  <div id="glyphcont"></div>
+
+
+  <div style="margin-top:1em">
+    <canvas id="maincanvas" style="float:left"></canvas>
+    <div style="float:left">
+      <div id="properties"></div>
+      <textarea id="textarea" style="width:380px;height:350px"> Path code </textarea>
+    </div>
+  </div>
+
+
+  <input id="word" type="text" value="Photopea" style="font-size:1.5em; width:100%; margin-top:1em;" oninput="drawWord()"></input>
+  <canvas id="wordcanvas"></canvas>
+
 </div>
 </body>
 </html>

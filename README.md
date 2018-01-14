@@ -14,6 +14,28 @@ Typr.js consists of static functions only, it can be easily rewritten into C or 
 * `Typr` - main parser, parses the raw data, generates the font object.
 * `Typr.U` - Typr utilities. Basic operations with fonts. Use it as a guide to write your own utilities.
 
+## Installation and usage
+
+In a browser, include the file in the `build` directory:
+```html
+<script src="typr.js"></script>
+```
+
+Install using npm:
+```
+npm i --save typr.js
+```
+
+Building:
+```
+npm run build
+```
+
+Requiring:
+
+```js
+const typr = require('typr.js');
+``` 
 
 ## Typr
 

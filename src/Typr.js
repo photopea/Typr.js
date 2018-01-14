@@ -3,8 +3,8 @@ var _bin = require('./bin.js');
 var tabs = require('./tabs.js');
 var utility = require('./Typr.U');
 
-// Export Typr
-module.exports = {
+// Create Typr
+var Typr = {
   parse: function (buff) {
     var bin = _bin;
     var data = new Uint8Array(buff);
@@ -76,6 +76,9 @@ module.exports = {
     return obj;
   }
 };
+
+// Export module
+module.exports = Typr;
 
 // Export to window object if available
 if (typeof window !== 'undefined') {
