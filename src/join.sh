@@ -4,4 +4,4 @@ cd tabs
 sh join.sh
 cd ..
 
-cat  main.js  bin.js  lctf.js  tabs/tabs.js  > Typr.js
+cat umd-open.js  main.js  bin.js  lctf.js  tabs/tabs.js umd-close.js > Typr.js
