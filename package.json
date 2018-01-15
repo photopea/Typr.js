@@ -1,0 +1,28 @@
+{
+  "name": "typr",
+  "version": "1.0.0",
+  "description": "Typr.js - process fonts in Javascript",
+  "main": "index.js",
+  "scripts": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/photopea/Typr.js.git"
+  },
+  "keywords": [
+    "typr",
+    "fonts",
+    "javascript",
+    "parser",
+    "ttf",
+    "otf"
+  ],
+  "author": "Photopea",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/photopea/Typr.js/issues"
+  },
+  "homepage": "https://github.com/photopea/Typr.js#readme",
+  "devDependencies": {
+  }
+}
