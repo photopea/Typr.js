@@ -7,7 +7,6 @@ Typr.U.codeToGlyph = function(font, code)
 {
 	var cmap = font.cmap;
 	
-	
 	var tind = -1;
 	if(cmap.p0e4!=null) tind = cmap.p0e4;
 	else if(cmap.p3e1!=null) tind = cmap.p3e1;
@@ -51,12 +50,16 @@ Typr.U.codeToGlyph = function(font, code)
 Typr.U.glyphToPath = function(font, gid)
 {
 	var path = { cmds:[], crds:[] };
-	if(font.CFF)
-	{
+	if(font.SVG && font.SVG.entries[gid]) {
+		var p = font.SVG.entries[gid];  if(p==null) return path;
+		if(typeof p == "string") {  p = Typr.SVG.toPath(p);  font.SVG.entries[gid]=p;  }
+		return p;
+	}
+	else if(font.CFF) {
 		var state = {x:0,y:0,stack:[],nStems:0,haveWidth:false,width: font.CFF.Private ? font.CFF.Private.defaultWidthX : 0,open:false};
 		Typr.U._drawCFF(font.CFF.CharStrings[gid], state, font.CFF, path);
 	}
-	if(font.glyf) Typr.U._drawGlyf(gid, font, path);
+	else if(font.glyf) {  Typr.U._drawGlyf(gid, font, path);  }
 	return path;
 }
 
@@ -133,9 +136,11 @@ Typr.U._compoGlyph = function(gl, font, p)
 
 Typr.U._getGlyphClass = function(g, cd)
 {
-	for(var i=0; i<cd.start.length; i++) 
-		if(cd.start[i]<=g && cd.end[i]>=g) return cd.class[i];
-	return 0;
+	var intr = Typr._lctf.getInterval(cd, g);
+	return intr==-1 ? 0 : cd[intr+2];
+	//for(var i=0; i<cd.start.length; i++) 
+	//	if(cd.start[i]<=g && cd.end[i]>=g) return cd.class[i];
+	//return 0;
 }
 
 Typr.U.getPairAdjustment = function(font, g1, g2)
@@ -191,7 +196,11 @@ Typr.U.getPairAdjustment = function(font, g1, g2)
 Typr.U.stringToGlyphs = function(font, str)
 {
 	var gls = [];
-	for(var i=0; i<str.length; i++) gls.push(Typr.U.codeToGlyph(font, str.charCodeAt(i)));
+	for(var i=0; i<str.length; i++) {
+		var cc = str.codePointAt(i);  if(cc>0xffff) i++;
+		gls.push(Typr.U.codeToGlyph(font, cc));
+	}
+	//console.log(gls.slice(0));
 	
 	//console.log(gls);  return gls;
 	
@@ -225,52 +234,83 @@ Typr.U.stringToGlyphs = function(font, str)
 			{
 				var tab = llist[flist[fi].tab[ti]];
 				if(tab.ltype!=1) continue;
-				for(var j=0; j<tab.tabs.length; j++)
-				{
-					var ttab = tab.tabs[j];
-					var ind = Typr._lctf.coverageIndex(ttab.coverage,gl);  if(ind==-1) continue;  
-					if(ttab.fmt==0) gls[ci] = ind+ttab.delta;
-					else            gls[ci] = ttab.newg[ind];
-					//console.log(ci, gl, "subst", flist[fi].tag, i, j, ttab.newg[ind]);
-				}
+				Typr.U._applyType1(gls, ci, tab);
 			}
 		}
 	}
-	var cligs = ["rlig", "liga"];
+	var cligs = ["rlig", "liga", "mset"];
+	
+	//console.log(gls);
 	
 	for(var ci=0; ci<gls.length; ci++) {
 		var gl = gls[ci];
 		var rlim = Math.min(3, gls.length-ci-1);
 		for(var fi=0; fi<flist.length; fi++)
 		{
-			
 			var fl = flist[fi];  if(cligs.indexOf(fl.tag)==-1) continue;
 			for(var ti=0; ti<fl.tab.length; ti++)
 			{
 				var tab = llist[fl.tab[ti]];
-				if(tab.ltype!=4) continue;
 				for(var j=0; j<tab.tabs.length; j++)
 				{
+					if(tab.tabs[j]==null) continue;
 					var ind = Typr._lctf.coverageIndex(tab.tabs[j].coverage, gl);  if(ind==-1) continue;  
-					var vals = tab.tabs[j].vals[ind];
-					
-					for(var k=0; k<vals.length; k++) {
-						var lig = vals[k], rl = lig.chain.length;  if(rl>rlim) continue;
-						var good = true;
-						for(var l=0; l<rl; l++) if(lig.chain[l]!=gls[ci+(1+l)]) good=false;
-						if(!good) continue;
-						gls[ci]=lig.nglyph;
-						for(var l=0; l<rl; l++) gls[ci+l+1]=-1;
-						//console.log("lig", fl.tag,  gl, lig.chain, lig.nglyph);
+					//*
+					if(tab.ltype==4) {
+						var vals = tab.tabs[j].vals[ind];
+						
+						for(var k=0; k<vals.length; k++) {
+							var lig = vals[k], rl = lig.chain.length;  if(rl>rlim) continue;
+							var good = true;
+							for(var l=0; l<rl; l++) if(lig.chain[l]!=gls[ci+(1+l)]) good=false;
+							if(!good) continue;
+							gls[ci]=lig.nglyph;
+							for(var l=0; l<rl; l++) gls[ci+l+1]=-1;
+							//console.log("lig", fl.tag,  gl, lig.chain, lig.nglyph);
+						}
+					}
+					else  if(tab.ltype==5) {
+						var ltab = tab.tabs[j];  if(ltab.fmt!=2) continue;
+						var cind = Typr._lctf.getInterval(ltab.cDef, gl);
+						var cls = ltab.cDef[cind+2], scs = ltab.scset[cls]; 
+						for(var i=0; i<scs.length; i++) {
+							var sc = scs[i], inp = sc.input;
+							if(inp.length>rlim) continue;
+							var good = true;
+							for(var l=0; l<inp.length; l++) {
+								var cind2 = Typr._lctf.getInterval(ltab.cDef, gls[ci+1+l]);
+								if(cind==-1 && ltab.cDef[cind2+2]!=inp[l]) {  good=false;  break;  }
+							}
+							if(!good) continue;
+							//console.log(ci, gl);
+							var lrs = sc.substLookupRecords;
+							for(var k=0; k<lrs.length; k+=2)
+							{
+								var gi = lrs[k], tabi = lrs[k+1];
+								//Typr.U._applyType1(gls, ci+gi, llist[tabi]);
+								//console.log(tabi, gls[ci+gi], llist[tabi]);
+							}
+						}
 					}
 				}
 			}
 		}
 	}
+	
 	return gls;
 }
+Typr.U._applyType1 = function(gls, ci, tab) {
+	var gl = gls[ci];
+	for(var j=0; j<tab.tabs.length; j++) {
+		var ttab = tab.tabs[j];
+		var ind = Typr._lctf.coverageIndex(ttab.coverage,gl);  if(ind==-1) continue;  
+		if(ttab.fmt==1) gls[ci] = gls[ci]+ttab.delta;
+		else            gls[ci] = ttab.newg[ind];
+		//console.log(ci, gl, "subst", flist[fi].tag, i, j, ttab.newg[ind]);
+	}
+}
 
-Typr.U.glyphsToPath = function(font, gls)
+Typr.U.glyphsToPath = function(font, gls, clr)
 {	
 	//gls = gls.reverse();//gls.slice(0,12).concat(gls.slice(12).reverse());
 	
@@ -282,14 +322,15 @@ Typr.U.glyphsToPath = function(font, gls)
 		var gid = gls[i];  if(gid==-1) continue;
 		var gid2 = (i<gls.length-1 && gls[i+1]!=-1)  ? gls[i+1] : 0;
 		var path = Typr.U.glyphToPath(font, gid);
-		
 		for(var j=0; j<path.crds.length; j+=2)
 		{
 			tpath.crds.push(path.crds[j] + x);
 			tpath.crds.push(path.crds[j+1]);
 		}
+		if(clr) tpath.cmds.push(clr);
 		for(var j=0; j<path.cmds.length; j++) tpath.cmds.push(path.cmds[j]);
-		x += font.hmtx.aWidth[gid];
+		if(clr) tpath.cmds.push("X");
+		x += font.hmtx.aWidth[gid];// - font.hmtx.lsBearing[gid];
 		if(i<gls.length-1) x += Typr.U.getPairAdjustment(font, gid, gid2);
 	}
 	return tpath;
@@ -315,27 +356,32 @@ Typr.U.pathToContext = function(path, ctx)
 	for(var j=0; j<path.cmds.length; j++)
 	{
 		var cmd = path.cmds[j];
-		if     (cmd=="M")
-		{
+		if     (cmd=="M") {
 			ctx.moveTo(crds[c], crds[c+1]);
 			c+=2;
 		}
-		else if(cmd=="L")
-		{
+		else if(cmd=="L") {
 			ctx.lineTo(crds[c], crds[c+1]);
 			c+=2;
 		}
-		else if(cmd=="C")
-		{
+		else if(cmd=="C") {
 			ctx.bezierCurveTo(crds[c], crds[c+1], crds[c+2], crds[c+3], crds[c+4], crds[c+5]);
 			c+=6;
 		}
-		else if(cmd=="Q")
-		{
+		else if(cmd=="Q") {
 			ctx.quadraticCurveTo(crds[c], crds[c+1], crds[c+2], crds[c+3]);
 			c+=4;
 		}
-		else if(cmd=="Z")  ctx.closePath();
+		else if(cmd.charAt(0)=="#") {
+			ctx.beginPath();
+			ctx.fillStyle = cmd;
+		}
+		else if(cmd=="Z") {
+			ctx.closePath();
+		}
+		else if(cmd=="X") {
+			ctx.fill();
+		}
 	}
 }
 

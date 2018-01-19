@@ -99,7 +99,7 @@
 			console.log(font);
 			
 			uncd = new Array(glyphCnt());
-			for(var i=0; i<100000; i++)  {
+			for(var i=0; i<130000; i++)  {
 				var gid = Typr.U.codeToGlyph(font, i);  
 				if(gid==0) continue;
 				if(uncd[gid]==null) uncd[gid]=[i];
@@ -183,7 +183,7 @@
 			
 			var hex = "---", str = "---";
 			var ucode = uncd[gid];
-			if(ucode!=null) {  hex=ucode[0].toString(16);  while(hex.length<4)hex="0"+hex;  str=String.fromCharCode(ucode[0]);   }
+			if(ucode!=null) {  hex=ucode[0].toString(16);  while(hex.length<4)hex="0"+hex;  str=String.fromCodePoint(ucode[0]);   }
 			
 			props.innerHTML = "Unicode: #"+hex+" <span style=\"font-size:2em; margin-left:1em;\"> "+str+"</span>";
 				
@@ -199,7 +199,7 @@
 			var scale = 80*getDPR() / font.head.unitsPerEm;
 			
 			var gls = Typr.U.stringToGlyphs(font, document.getElementById("word").value);
-			var path = Typr.U.glyphsToPath(font, gls);
+			var path = Typr.U.glyphsToPath(font, gls, "#333333");
 			
 			//var spath = document.getElementById("svgp");  spath.setAttribute("d", Typr.U.pathToSVG(path));
 				
@@ -213,9 +213,7 @@
 			
 			ctx.scale(scale,-scale);
 			
-			ctx.fillStyle = "#333";
-			Typr.U.pathToContext(path, ctx);
-			ctx.fill();
+			Typr.U.pathToContext(path, ctx);  // setting color and calling fill() already in path
 		}
 		
 		function drawOutline(path, ctx)

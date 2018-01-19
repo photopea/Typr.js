@@ -78,6 +78,12 @@ Typr._bin = {
 		}
 		return s;
 	},
+	_tdec : window["TextDecoder"] ? new window["TextDecoder"]() : null,
+	readUTF8 : function(buff, p, l) {
+		var tdec = Typr._bin._tdec;
+		if(tdec && p==0 && l==buff.length) return tdec["decode"](buff);
+		return Typr._bin.readASCII(buff,p,l);
+	},
 	readBytes : function(buff, p, l)
 	{
 		//if(p>=buff.length) throw "error";

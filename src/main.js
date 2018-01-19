@@ -42,7 +42,9 @@ Typr.parse = function(buff)
 		
 		
 		"GPOS",
-		"GSUB"
+		"GSUB",
+		
+		"SVG "
 		//"VORG",
 		];
 	
@@ -59,7 +61,7 @@ Typr.parse = function(buff)
 		var length = bin.readUint(data, offset);    offset += 4;
 		tabs[tag] = {offset:toffset, length:length};
 		
-		//if(tags.indexOf(tag)==-1) console.log("unknown tag", tag);
+		//if(tags.indexOf(tag)==-1) console.log("unknown tag", tag, length);
 	}
 	
 	for(var i=0; i< tags.length; i++)

@@ -8,14 +8,15 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 {
 	var bin = Typr._bin, offset0 = offset, tab = {};
 	
-	if(ltype!=1 && ltype!=4) return null;
+	if(ltype!=1 && ltype!=4 && ltype!=5) return null;
 	
 	tab.fmt  = bin.readUshort(data, offset);  offset+=2;
 	var covOff  = bin.readUshort(data, offset);  offset+=2;
 	tab.coverage = Typr._lctf.readCoverage(data, covOff+offset0);	// not always is coverage here
 	
 	if(false) {}
-	else if(ltype==1) {
+	//  Single Substitution Subtable
+	else if(ltype==1) {	
 		if(tab.fmt==1) {
 			tab.delta = bin.readShort(data, offset);  offset+=2;
 		}
@@ -24,6 +25,7 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 			tab.newg = bin.readUshorts(data, offset, cnt);  offset+=tab.newg.length*2;
 		}
 	}
+	//  Ligature Substitution Subtable
 	else if(ltype==4) {
 		tab.vals = [];
 		var cnt = bin.readUshort(data, offset);  offset+=2;
@@ -33,7 +35,24 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 		}
 		//console.log(tab.coverage);
 		//console.log(tab.vals);
-	} /*
+	} 
+	//  Contextual Substitution Subtable
+	else if(ltype==5) {
+		if(tab.fmt==2) {
+			var cDefOffset = bin.readUshort(data, offset);  offset+=2;
+			tab.cDef = Typr._lctf.readClassDef(data, offset0 + cDefOffset);
+			tab.scset = [];
+			var subClassSetCount = bin.readUshort(data, offset);  offset+=2;
+			for(var i=0; i<subClassSetCount; i++)
+			{
+				var scsOff = bin.readUshort(data, offset);  offset+=2;
+				tab.scset.push(  scsOff==0 ? null : Typr.GSUB.readSubClassSet(data, offset0 + scsOff)  );
+			}
+		}
+		else console.log("unknown table format", tab.fmt);
+	}
+	
+	/*
 	else if(ltype==6) {
 		if(fmt==2) {
 			var btDef = bin.readUshort(data, offset);  offset+=2;
@@ -55,6 +74,36 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 	//if(tab.coverage.indexOf(3)!=-1) console.log(ltype, fmt, tab);
 	
 	return tab;
+}
+
+Typr.GSUB.readSubClassSet = function(data, offset)
+{
+	var rUs = Typr._bin.readUshort, offset0 = offset, lset = [];
+	var cnt = rUs(data, offset);  offset+=2;
+	for(var i=0; i<cnt; i++) {
+		var loff = rUs(data, offset);  offset+=2;
+		lset.push(Typr.GSUB.readSubClassRule(data, offset0+loff));
+	}
+	return lset;
+}
+Typr.GSUB.readSubClassRule= function(data, offset)
+{
+	var rUs = Typr._bin.readUshort, offset0 = offset, rule = {};
+	var gcount = rUs(data, offset);  offset+=2;
+	var scount = rUs(data, offset);  offset+=2;
+	rule.input = [];
+	for(var i=0; i<gcount-1; i++) {
+		rule.input.push(rUs(data, offset));  offset+=2;
+	}
+	rule.substLookupRecords = Typr.GSUB.readSubstLookupRecords(data, offset, scount);
+	return rule;
+}
+Typr.GSUB.readSubstLookupRecords = function(data, offset, cnt)
+{
+	var rUs = Typr._bin.readUshort;
+	var out = [];
+	for(var i=0; i<cnt; i++) {  out.push(rUs(data, offset), rUs(data, offset+2));  offset+=4;  }
+	return out;
 }
 
 Typr.GSUB.readChainSubClassSet = function(data, offset)

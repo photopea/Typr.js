@@ -84,8 +84,9 @@ Typr.name.parse = function(data, offset, length)
 	
 	//console.log(obj);
 	
-	for(var p in obj) if(obj[p]._lang==1033) return obj[p];		// United States
-	for(var p in obj) if(obj[p]._lang==   0) return obj[p];
+	for(var p in obj) if(obj[p].postScriptName!=null && obj[p]._lang==0x0409) return obj[p];		// United States
+	for(var p in obj) if(obj[p].postScriptName!=null && obj[p]._lang==0x0c0c) return obj[p];		// Canada
+	for(var p in obj) if(obj[p].postScriptName!=null) return obj[p];
 	
 	var tname;
 	for(var p in obj) { tname=p; break; }

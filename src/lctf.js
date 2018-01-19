@@ -69,7 +69,7 @@ Typr._lctf.numOfOnes = function(n)
 Typr._lctf.readClassDef = function(data, offset)
 {
 	var bin = Typr._bin;
-	var obj = { start:[], end:[], class:[] };
+	var obj = [];
 	var format = bin.readUshort(data, offset);  offset+=2;
 	if(format==1) 
 	{
@@ -77,9 +77,9 @@ Typr._lctf.readClassDef = function(data, offset)
 		var glyphCount  = bin.readUshort(data, offset);  offset+=2;
 		for(var i=0; i<glyphCount; i++)
 		{
-			obj.start.push(startGlyph+i);
-			obj.end  .push(startGlyph+i);
-			obj.class.push(bin.readUshort(data, offset));  offset+=2;
+			obj.push(startGlyph+i);
+			obj.push(startGlyph+i);
+			obj.push(bin.readUshort(data, offset));  offset+=2;
 		}
 	}
 	if(format==2)
@@ -87,12 +87,21 @@ Typr._lctf.readClassDef = function(data, offset)
 		var count = bin.readUshort(data, offset);  offset+=2;
 		for(var i=0; i<count; i++)
 		{
-			obj.start.push(bin.readUshort(data, offset));  offset+=2;
-			obj.end  .push(bin.readUshort(data, offset));  offset+=2;
-			obj.class.push(bin.readUshort(data, offset));  offset+=2;
+			obj.push(bin.readUshort(data, offset));  offset+=2;
+			obj.push(bin.readUshort(data, offset));  offset+=2;
+			obj.push(bin.readUshort(data, offset));  offset+=2;
 		}
 	}
 	return obj;
+}
+Typr._lctf.getInterval = function(tab, val)
+{
+	for(var i=0; i<tab.length; i+=3)
+	{
+		var start = tab[i], end = tab[i+1], index = tab[i+2];
+		if(start<=val && val<=end) return i;
+	}
+	return -1;
 }
 
 Typr._lctf.readValueRecord = function(data, offset, valFmt)
@@ -122,11 +131,9 @@ Typr._lctf.coverageIndex = function(cvg, val)
 {
 	var tab = cvg.tab;
 	if(cvg.fmt==1) return tab.indexOf(val);
-	
-	for(var i=0; i<tab.length; i+=3)
-	{
-		var start = tab[i], end = tab[i+1], index = tab[i+2];
-		if(start<=val && val<=end) return index + (val-start);
+	if(cvg.fmt==2) {
+		var ind = Typr._lctf.getInterval(tab, val);
+		if(ind!=-1) return tab[ind+2] + (val - tab[ind]);
 	}
 	return -1;
 }

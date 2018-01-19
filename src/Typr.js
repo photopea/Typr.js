@@ -42,7 +42,9 @@ Typr.parse = function(buff)
 		
 		
 		"GPOS",
-		"GSUB"
+		"GSUB",
+		
+		"SVG "
 		//"VORG",
 		];
 	
@@ -59,7 +61,7 @@ Typr.parse = function(buff)
 		var length = bin.readUint(data, offset);    offset += 4;
 		tabs[tag] = {offset:toffset, length:length};
 		
-		//if(tags.indexOf(tag)==-1) console.log("unknown tag", tag);
+		//if(tags.indexOf(tag)==-1) console.log("unknown tag", tag, length);
 	}
 	
 	for(var i=0; i< tags.length; i++)
@@ -172,6 +174,12 @@ Typr._bin = {
 		}
 		return s;
 	},
+	_tdec : window["TextDecoder"] ? new window["TextDecoder"]() : null,
+	readUTF8 : function(buff, p, l) {
+		var tdec = Typr._bin._tdec;
+		if(tdec && p==0 && l==buff.length) return tdec["decode"](buff);
+		return Typr._bin.readASCII(buff,p,l);
+	},
 	readBytes : function(buff, p, l)
 	{
 		//if(p>=buff.length) throw "error";
@@ -272,7 +280,7 @@ Typr._lctf.numOfOnes = function(n)
 Typr._lctf.readClassDef = function(data, offset)
 {
 	var bin = Typr._bin;
-	var obj = { start:[], end:[], class:[] };
+	var obj = [];
 	var format = bin.readUshort(data, offset);  offset+=2;
 	if(format==1) 
 	{
@@ -280,9 +288,9 @@ Typr._lctf.readClassDef = function(data, offset)
 		var glyphCount  = bin.readUshort(data, offset);  offset+=2;
 		for(var i=0; i<glyphCount; i++)
 		{
-			obj.start.push(startGlyph+i);
-			obj.end  .push(startGlyph+i);
-			obj.class.push(bin.readUshort(data, offset));  offset+=2;
+			obj.push(startGlyph+i);
+			obj.push(startGlyph+i);
+			obj.push(bin.readUshort(data, offset));  offset+=2;
 		}
 	}
 	if(format==2)
@@ -290,12 +298,21 @@ Typr._lctf.readClassDef = function(data, offset)
 		var count = bin.readUshort(data, offset);  offset+=2;
 		for(var i=0; i<count; i++)
 		{
-			obj.start.push(bin.readUshort(data, offset));  offset+=2;
-			obj.end  .push(bin.readUshort(data, offset));  offset+=2;
-			obj.class.push(bin.readUshort(data, offset));  offset+=2;
+			obj.push(bin.readUshort(data, offset));  offset+=2;
+			obj.push(bin.readUshort(data, offset));  offset+=2;
+			obj.push(bin.readUshort(data, offset));  offset+=2;
 		}
 	}
 	return obj;
+}
+Typr._lctf.getInterval = function(tab, val)
+{
+	for(var i=0; i<tab.length; i+=3)
+	{
+		var start = tab[i], end = tab[i+1], index = tab[i+2];
+		if(start<=val && val<=end) return i;
+	}
+	return -1;
 }
 
 Typr._lctf.readValueRecord = function(data, offset, valFmt)
@@ -325,11 +342,9 @@ Typr._lctf.coverageIndex = function(cvg, val)
 {
 	var tab = cvg.tab;
 	if(cvg.fmt==1) return tab.indexOf(val);
-	
-	for(var i=0; i<tab.length; i+=3)
-	{
-		var start = tab[i], end = tab[i+1], index = tab[i+2];
-		if(start<=val && val<=end) return index + (val-start);
+	if(cvg.fmt==2) {
+		var ind = Typr._lctf.getInterval(tab, val);
+		if(ind!=-1) return tab[ind+2] + (val - tab[ind]);
 	}
 	return -1;
 }
@@ -1097,14 +1112,15 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 {
 	var bin = Typr._bin, offset0 = offset, tab = {};
 	
-	if(ltype!=1 && ltype!=4) return null;
+	if(ltype!=1 && ltype!=4 && ltype!=5) return null;
 	
 	tab.fmt  = bin.readUshort(data, offset);  offset+=2;
 	var covOff  = bin.readUshort(data, offset);  offset+=2;
 	tab.coverage = Typr._lctf.readCoverage(data, covOff+offset0);	// not always is coverage here
 	
 	if(false) {}
-	else if(ltype==1) {
+	//  Single Substitution Subtable
+	else if(ltype==1) {	
 		if(tab.fmt==1) {
 			tab.delta = bin.readShort(data, offset);  offset+=2;
 		}
@@ -1113,6 +1129,7 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 			tab.newg = bin.readUshorts(data, offset, cnt);  offset+=tab.newg.length*2;
 		}
 	}
+	//  Ligature Substitution Subtable
 	else if(ltype==4) {
 		tab.vals = [];
 		var cnt = bin.readUshort(data, offset);  offset+=2;
@@ -1122,7 +1139,24 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 		}
 		//console.log(tab.coverage);
 		//console.log(tab.vals);
-	} /*
+	} 
+	//  Contextual Substitution Subtable
+	else if(ltype==5) {
+		if(tab.fmt==2) {
+			var cDefOffset = bin.readUshort(data, offset);  offset+=2;
+			tab.cDef = Typr._lctf.readClassDef(data, offset0 + cDefOffset);
+			tab.scset = [];
+			var subClassSetCount = bin.readUshort(data, offset);  offset+=2;
+			for(var i=0; i<subClassSetCount; i++)
+			{
+				var scsOff = bin.readUshort(data, offset);  offset+=2;
+				tab.scset.push(  scsOff==0 ? null : Typr.GSUB.readSubClassSet(data, offset0 + scsOff)  );
+			}
+		}
+		else console.log("unknown table format", tab.fmt);
+	}
+	
+	/*
 	else if(ltype==6) {
 		if(fmt==2) {
 			var btDef = bin.readUshort(data, offset);  offset+=2;
@@ -1144,6 +1178,36 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 	//if(tab.coverage.indexOf(3)!=-1) console.log(ltype, fmt, tab);
 	
 	return tab;
+}
+
+Typr.GSUB.readSubClassSet = function(data, offset)
+{
+	var rUs = Typr._bin.readUshort, offset0 = offset, lset = [];
+	var cnt = rUs(data, offset);  offset+=2;
+	for(var i=0; i<cnt; i++) {
+		var loff = rUs(data, offset);  offset+=2;
+		lset.push(Typr.GSUB.readSubClassRule(data, offset0+loff));
+	}
+	return lset;
+}
+Typr.GSUB.readSubClassRule= function(data, offset)
+{
+	var rUs = Typr._bin.readUshort, offset0 = offset, rule = {};
+	var gcount = rUs(data, offset);  offset+=2;
+	var scount = rUs(data, offset);  offset+=2;
+	rule.input = [];
+	for(var i=0; i<gcount-1; i++) {
+		rule.input.push(rUs(data, offset));  offset+=2;
+	}
+	rule.substLookupRecords = Typr.GSUB.readSubstLookupRecords(data, offset, scount);
+	return rule;
+}
+Typr.GSUB.readSubstLookupRecords = function(data, offset, cnt)
+{
+	var rUs = Typr._bin.readUshort;
+	var out = [];
+	for(var i=0; i<cnt; i++) {  out.push(rUs(data, offset), rUs(data, offset+2));  offset+=4;  }
+	return out;
 }
 
 Typr.GSUB.readChainSubClassSet = function(data, offset)
@@ -1468,8 +1532,9 @@ Typr.name.parse = function(data, offset, length)
 	
 	//console.log(obj);
 	
-	for(var p in obj) if(obj[p]._lang==1033) return obj[p];		// United States
-	for(var p in obj) if(obj[p]._lang==   0) return obj[p];
+	for(var p in obj) if(obj[p].postScriptName!=null && obj[p]._lang==0x0409) return obj[p];		// United States
+	for(var p in obj) if(obj[p].postScriptName!=null && obj[p]._lang==0x0c0c) return obj[p];		// Canada
+	for(var p in obj) if(obj[p].postScriptName!=null) return obj[p];
 	
 	var tname;
 	for(var p in obj) { tname=p; break; }
@@ -1574,4 +1639,137 @@ Typr.post.parse = function(data, offset, length)
 	obj.underlineThickness = bin.readShort(data, offset);  offset+=2;
 
 	return obj;
+}
+Typr.SVG = {};
+Typr.SVG.parse = function(data, offset, length)
+{
+	var bin = Typr._bin;
+	var obj = { entries: []};
+
+	var offset0 = offset;
+
+	var tableVersion = bin.readUshort(data, offset);	offset += 2;
+	var svgDocIndexOffset = bin.readUint(data, offset);	offset += 4;
+	var reserved = bin.readUint(data, offset); offset += 4;
+
+	offset = svgDocIndexOffset + offset0;
+
+	var numEntries = bin.readUshort(data, offset);	offset += 2;
+
+	for(var i=0; i<numEntries; i++)
+	{
+		var startGlyphID = bin.readUshort(data, offset);  offset += 2;
+		var endGlyphID   = bin.readUshort(data, offset);  offset += 2;
+		var svgDocOffset = bin.readUint  (data, offset);  offset += 4;
+		var svgDocLength = bin.readUint  (data, offset);  offset += 4;
+
+		var sbuf = new Uint8Array(data.buffer, offset0 + svgDocOffset + svgDocIndexOffset, svgDocLength);
+		var svg = bin.readUTF8(sbuf, 0, sbuf.length);
+		
+		for(var f=startGlyphID; f<=endGlyphID; f++) {
+			obj.entries[f] = svg;
+		}
+	}
+	return obj;
+}
+
+Typr.SVG.toPath = function(str)
+{
+	var pth = {cmds:[], crds:[]};
+	if(str==null) return pth;
+	
+	var prsr = new DOMParser();
+	var doc = prsr["parseFromString"](str,"image/svg+xml");
+	
+	var svg = doc.firstChild;  while(svg.tagName!="svg") svg = svg.nextSibling;
+	var vb = svg.getAttribute("viewBox");
+	if(vb) vb = vb.trim().split(" ").map(parseFloat);  else   vb = [0,0,1000,1000];
+	Typr.SVG._toPath(svg.children, pth);
+	for(var i=0; i<pth.crds.length; i+=2) {
+		var x = pth.crds[i], y = pth.crds[i+1];
+		x -= vb[0];
+		y -= vb[1];
+		y = -y;
+		pth.crds[i] = x;
+		pth.crds[i+1] = y;
+	}
+	return pth;
+}
+
+Typr.SVG._toPath = function(nds, pth, fill) {
+	for(var ni=0; ni<nds.length; ni++) {
+		var nd = nds[ni], tn = nd.tagName;
+		var cfl = nd.getAttribute("fill");  if(cfl==null) cfl = fill;
+		if(tn=="g") Typr.SVG._toPath(nd.children, pth, cfl);
+		else if(tn=="path") {
+			pth.cmds.push(cfl?cfl:"#000000");
+			var d = nd.getAttribute("d");  //console.log(d);
+			var toks = Typr.SVG._tokens(d);  //console.log(toks);
+			Typr.SVG._toksToPath(toks, pth);  pth.cmds.push("X");
+		}
+		else if(tn=="defs") {}
+		else console.log(tn, nd);
+	}
+}
+
+Typr.SVG._tokens = function(d) {
+	var ts = [], off = 0, rn=false, cn="";  // reading number, current number
+	while(off<d.length){
+		var cc=d.charCodeAt(off), ch = d.charAt(off);  off++;
+		var isNum = (48<=cc && cc<=57) || ch=="." || ch=="-";
+		
+		if(rn) {
+			if(ch=="-") {  ts.push(parseFloat(cn));  cn=ch;  }
+			else if(isNum) cn+=ch;
+			else {  ts.push(parseFloat(cn));  if(ch!="," && ch!=" ") ts.push(ch);  rn=false;  }
+		}
+		else {
+			if(isNum) {  cn=ch;  rn=true;  }
+			else if(ch!="," && ch!=" ") ts.push(ch);
+		}
+	}
+	if(rn) ts.push(parseFloat(cn));
+	return ts;
+}
+
+Typr.SVG._toksToPath = function(ts, pth) {	
+	var i = 0, x = 0, y = 0, ox = 0, oy = 0;
+	var pc = {"M":2,"L":2,"H":1,"V":1,   "S":4,   "C":6};
+	var cmds = pth.cmds, crds = pth.crds;
+	
+	while(i<ts.length) {
+		var cmd = ts[i];  i++;
+		
+		if(cmd=="z") {  cmds.push("Z");  x=ox;  y=oy;  }
+		else {
+			var cmu = cmd.toUpperCase();
+			var ps = pc[cmu], reps = Typr.SVG._reps(ts, i, ps);
+		
+			for(var j=0; j<reps; j++) {
+				var xi = 0, yi = 0;   if(cmd!=cmu) {  xi=x;  yi=y;  }
+				
+				if(false) {}
+				else if(cmu=="M") {  x = xi+ts[i++];  y = yi+ts[i++];  cmds.push("M");  crds.push(x,y);  ox=x;  oy=y; }
+				else if(cmu=="L") {  x = xi+ts[i++];  y = yi+ts[i++];  cmds.push("L");  crds.push(x,y);  }
+				else if(cmu=="H") {  x = xi+ts[i++];                   cmds.push("L");  crds.push(x,y);  }
+				else if(cmu=="V") {  y = yi+ts[i++];                   cmds.push("L");  crds.push(x,y);  }
+				else if(cmu=="C") {
+					var x1=xi+ts[i++], y1=yi+ts[i++], x2=xi+ts[i++], y2=yi+ts[i++], x3=xi+ts[i++], y3=yi+ts[i++];
+					cmds.push("C");  crds.push(x1,y1,x2,y2,x3,y3);  x=x3;  y=y3;
+				}
+				else if(cmu=="S") {
+					var co = Math.max(crds.length-4, 0);
+					var x1 = x+x-crds[co], y1 = y+y-crds[co+1];
+					var x2=xi+ts[i++], y2=yi+ts[i++], x3=xi+ts[i++], y3=yi+ts[i++];  
+					cmds.push("C");  crds.push(x1,y1,x2,y2,x3,y3);  x=x3;  y=y3;
+				}
+				else console.log("Unknown SVG command "+cmd);
+			}
+		}
+	}
+}
+Typr.SVG._reps = function(ts, off, ps) {
+	var i = off;
+	while(i<ts.length) {  if((typeof ts[i]) == "string") break;  i+=ps;  }
+	return (i-off)/ps;
 }
