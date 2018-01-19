@@ -2,10 +2,11 @@
 
 [LIVE DEMO](https://photopea.github.io/Typr.js) Typr.js is a Javascript parser and utility for working with fonts (TTF, OTF). It is an alternative to [opentype.js](https://github.com/nodebox/opentype.js). It is the main text engine for [Photopea image editor](https://www.photopea.com).
 
-* light and small (60 kB unminified uncompressed, 4x smaller than opentype.js)
+* light and small (70 kB unminified uncompressed, 4x smaller than opentype.js)
 * ultra fast (2x to 5x faster parsing than opentype.js)
-* successfully parsed more than 2000 fonts (opentype.js had problems with many of them)
+* successfully parsed more than 3000 fonts (opentype.js had problems with many of them)
 * simple structure and easy to extend
+* supports colored (SVG) fonts
 
 ![Typr.js preview](glyphs.png "Typr.js preview")
 
@@ -65,6 +66,8 @@ Typr.js uses the following structure to represent the path:
 * "Q": (X1,Y1,X2,Y2) - quadratic bézier curve from the previous position to X2,Y2, using X1,Y1 as a control point.
 * "C": (X1,Y1,X2,Y2,X3,Y3) - cubic bézier curve from the previous position to X3,Y3, using X1,Y1 and X2,Y2 as control points.
 * "Z": () - draw a line to the first point to finish the outline.
+* "#rrggbb" : () - set the current collor to RGB(rr,gg,bb) (SVG fonts use this)
+* "X": () - fill the current path (SVG fonts use this)
 
 A "raindrop" shape: `{ cmds:["M","L","Q","L","Z"], crds:[0,0,20,80,0,120,-20,80,0,0] }` (2 + 2 + 4 + 2 + 0 coordinates). 
 
