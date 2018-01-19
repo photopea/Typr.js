@@ -69,7 +69,7 @@ Typr.js uses the following structure to represent the path:
 * "#rrggbb" : () - set the current collor to RGB(rr,gg,bb) (SVG fonts use this)
 * "X": () - fill the current path (SVG fonts use this)
 
-A "raindrop" shape: `{ cmds:["M","L","Q","L","Z"], crds:[0,0,20,80,0,120,-20,80,0,0] }` (2 + 2 + 4 + 2 + 0 coordinates). 
+A "raindrop" shape: `{ cmds:["M","L","Q","Z"], crds:[0,0,20,80,0,120,-20,80] }` (2 + 2 + 4 + 0 coordinates). 
 
 The format is similar to SVG, but commands and coordinates are separated. It is comfortable to work with coordinates as a set of 2D points, apply affine transformations etc.
 
