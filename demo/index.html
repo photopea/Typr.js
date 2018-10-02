@@ -72,7 +72,6 @@
 		}
 		
 		function go() {  
-			//load("Cabin-Bold.otf",fontLoaded);  
 			load("LiberationSans-Bold.ttf",fontLoaded);  
 			
 			var node = document.body;
@@ -95,8 +94,9 @@
 		
 		function fontLoaded(resp)
 		{
-			font = Typr.parse(resp);
+			font = Typr.parse(resp)[0];
 			console.log(font);
+			
 			
 			uncd = new Array(glyphCnt());
 			for(var i=0; i<130000; i++)  {
@@ -108,7 +108,7 @@
 			
 			off=0;  gid=0;
 			
-			drawGlyphs();
+			drawGlyphs();  
 			drawGlyph();
 			drawWord();
 		}
@@ -121,6 +121,7 @@
 			ctx.font="20px sans";
 			
 			var lim = Math.min(off+num, glyphCnt());
+			//console.log(off, lim); throw "e";
 			var scale = 32*getDPR() / font.head.unitsPerEm;
 			for(var i=off; i<lim; i++)
 			{
