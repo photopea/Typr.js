@@ -8,11 +8,14 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 {
 	var bin = Typr._bin, offset0 = offset, tab = {};
 	
-	if(ltype!=1 && ltype!=4 && ltype!=5) return null;
-	
 	tab.fmt  = bin.readUshort(data, offset);  offset+=2;
-	var covOff  = bin.readUshort(data, offset);  offset+=2;
-	tab.coverage = Typr._lctf.readCoverage(data, covOff+offset0);	// not always is coverage here
+	
+	if(ltype!=1 && ltype!=4 && ltype!=5 && ltype!=6) return null;
+	
+	if(ltype==1 || ltype==4 || (ltype==5 && tab.fmt<=2) || (ltype==6 && tab.fmt<=2)) {
+		var covOff  = bin.readUshort(data, offset);  offset+=2;
+		tab.coverage = Typr._lctf.readCoverage(data, offset0+covOff);	// not always is coverage here
+	}
 	
 	if(false) {}
 	//  Single Substitution Subtable
@@ -49,12 +52,12 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 				tab.scset.push(  scsOff==0 ? null : Typr.GSUB.readSubClassSet(data, offset0 + scsOff)  );
 			}
 		}
-		else console.log("unknown table format", tab.fmt);
+		//else console.log("unknown table format", tab.fmt);
 	}
-	
-	/*
+	//*
 	else if(ltype==6) {
-		if(fmt==2) {
+		/*
+		if(tab.fmt==2) {
 			var btDef = bin.readUshort(data, offset);  offset+=2;
 			var inDef = bin.readUshort(data, offset);  offset+=2;
 			var laDef = bin.readUshort(data, offset);  offset+=2;
@@ -70,7 +73,22 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 				tab.scset.push(Typr.GSUB.readChainSubClassSet(data, offset0+loff));
 			}
 		}
-	} */
+		*/
+		if(tab.fmt==3) {
+			for(var i=0; i<3; i++) {
+				var cnt = bin.readUshort(data, offset);  offset+=2;
+				var cvgs = [];
+				for(var j=0; j<cnt; j++) cvgs.push(  Typr._lctf.readCoverage(data, offset0 + bin.readUshort(data, offset+j*2))   );
+				offset+=cnt*2;
+				if(i==0) tab.backCvg = cvgs;
+				if(i==1) tab.inptCvg = cvgs;
+				if(i==2) tab.ahedCvg = cvgs;
+			}
+			var cnt = bin.readUshort(data, offset);  offset+=2;
+			tab.lookupRec = Typr.GSUB.readSubstLookupRecords(data, offset, cnt);
+		}
+		//console.log(tab);
+	} //*/
 	//if(tab.coverage.indexOf(3)!=-1) console.log(ltype, fmt, tab);
 	
 	return tab;

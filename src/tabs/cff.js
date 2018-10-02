@@ -21,13 +21,12 @@
 		var names = [];
 		
 		for(var i=0; i<ninds.length-1; i++) names.push(bin.readASCII(data, offset+ninds[i], ninds[i+1]-ninds[i]));
-		//console.log(names);
 		offset += ninds[ninds.length-1];
 		
 		
 		// Top DICT INDEX
 		var tdinds = [];
-		offset = Typr.CFF.readIndex(data, offset, tdinds);
+		offset = Typr.CFF.readIndex(data, offset, tdinds);  //console.log(tdinds);
 		// Top DICT Data
 		var topDicts = [];
 		for(var i=0; i<tdinds.length-1; i++) topDicts.push( Typr.CFF.readDict(data, offset+tdinds[i], offset+tdinds[i+1]) );
@@ -60,27 +59,49 @@
 			//console.log(topdict.CharStrings);
 		}
 		
+		// CID font
+		if(topdict.ROS) {
+			offset = topdict.FDArray;
+			var fdind = [];
+			offset = Typr.CFF.readIndex(data, offset, fdind);
+			
+			topdict.FDArray = [];
+			for(var i=0; i<fdind.length-1; i++) {
+				var dict = Typr.CFF.readDict(data, offset+fdind[i], offset+fdind[i+1]);
+				Typr.CFF._readFDict(data, dict, strings);
+				topdict.FDArray.push( dict );
+			}
+			offset += fdind[fdind.length-1];
+			
+			offset = topdict.FDSelect;
+			topdict.FDSelect = [];
+			var fmt = data[offset];  offset++;
+			if(fmt==3) {
+				var rns = bin.readUshort(data, offset);  offset+=2;
+				for(var i=0; i<rns+1; i++) {
+					topdict.FDSelect.push(bin.readUshort(data, offset), data[offset+2]);  offset+=3;
+				}
+			}
+			else throw fmt;
+		}
+		
 		// Encoding
 		if(topdict.Encoding) topdict.Encoding = Typr.CFF.readEncoding(data, topdict.Encoding, topdict.CharStrings.length);
 		
 		// charset
 		if(topdict.charset ) topdict.charset  = Typr.CFF.readCharset (data, topdict.charset , topdict.CharStrings.length);
 		
-		if(topdict.Private)
-		{
-			offset = topdict.Private[1];
-			topdict.Private = Typr.CFF.readDict(data, offset, offset+topdict.Private[0]);
-			if(topdict.Private.Subrs)  Typr.CFF.readSubrs(data, offset+topdict.Private.Subrs, topdict.Private);
+		Typr.CFF._readFDict(data, topdict, strings);
+		return topdict;
+	}
+	Typr.CFF._readFDict = function(data, dict, ss) {
+		var offset;
+		if(dict.Private) {
+			offset = dict.Private[1];
+			dict.Private = Typr.CFF.readDict(data, offset, offset+dict.Private[0]);
+			if(dict.Private.Subrs)  Typr.CFF.readSubrs(data, offset+dict.Private.Subrs, dict.Private);
 		}
-		
-		var obj = {};
-		for(var p in topdict)
-		{
-			if(["FamilyName", "FullName", "Notice", "version", "Copyright"].indexOf(p) != -1)  obj[p] = strings[topdict[p] -426 + 35 ];
-			else obj[p] = topdict[p];
-		}
-		//console.log(obj);
-		return obj;
+		for(var p in dict) if(["FamilyName","FontName","FullName","Notice","version","Copyright"].indexOf(p)!=-1)  dict[p]=ss[dict[p] -426 + 35];
 	}
 	
 	Typr.CFF.readSubrs = function(data, offset, obj)
@@ -215,15 +236,15 @@
 	{
 		var bin = Typr._bin;
 		
-		var count = bin.readUshort(data, offset);  offset+=2;
+		var count = bin.readUshort(data, offset)+1;  offset+=2;
 		var offsize = data[offset];  offset++;
 		
-		if     (offsize==1) for(var i=0; i<count+1; i++) inds.push( data[offset+i] );
-		else if(offsize==2) for(var i=0; i<count+1; i++) inds.push( bin.readUshort(data, offset+i*2) );
-		else if(offsize==3) for(var i=0; i<count+1; i++) inds.push( bin.readUint  (data, offset+i*3 - 1) & 0x00ffffff );
-		else if(count!=0) throw "unsupported offset size: " + offsize + ", count: " + count;
+		if     (offsize==1) for(var i=0; i<count; i++) inds.push( data[offset+i] );
+		else if(offsize==2) for(var i=0; i<count; i++) inds.push( bin.readUshort(data, offset+i*2) );
+		else if(offsize==3) for(var i=0; i<count; i++) inds.push( bin.readUint  (data, offset+i*3 - 1) & 0x00ffffff );
+		else if(count!=1) throw "unsupported offset size: " + offsize + ", count: " + count;
 		
-		offset += (count+1)*offsize;
+		offset += count*offsize;
 		return offset-1;
 	}
 	

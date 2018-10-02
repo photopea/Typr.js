@@ -104,16 +104,6 @@ Typr._lctf.getInterval = function(tab, val)
 	return -1;
 }
 
-Typr._lctf.readValueRecord = function(data, offset, valFmt)
-{
-	var bin = Typr._bin;
-	var arr = [];
-	arr.push( (valFmt&1) ? bin.readShort(data, offset) : 0 );  offset += (valFmt&1) ? 2 : 0;
-	arr.push( (valFmt&2) ? bin.readShort(data, offset) : 0 );  offset += (valFmt&2) ? 2 : 0;
-	arr.push( (valFmt&4) ? bin.readShort(data, offset) : 0 );  offset += (valFmt&4) ? 2 : 0;
-	arr.push( (valFmt&8) ? bin.readShort(data, offset) : 0 );  offset += (valFmt&8) ? 2 : 0;
-	return arr;
-}
 
 Typr._lctf.readCoverage = function(data, offset)
 {

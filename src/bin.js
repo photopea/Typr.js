@@ -8,9 +8,6 @@ Typr._bin = {
 	{
 		var num = Typr._bin.readShort(data, o);
 		return num / 16384;
-		
-		var intg = (num >> 14), frac = ((num & 0x3fff)/(0x3fff+1));
-		return (intg>0) ? (intg+frac) : (intg-frac);
 	},
 	readInt : function(buff, p)
 	{

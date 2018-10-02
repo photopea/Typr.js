@@ -21,13 +21,12 @@
 		var names = [];
 		
 		for(var i=0; i<ninds.length-1; i++) names.push(bin.readASCII(data, offset+ninds[i], ninds[i+1]-ninds[i]));
-		//console.log(names);
 		offset += ninds[ninds.length-1];
 		
 		
 		// Top DICT INDEX
 		var tdinds = [];
-		offset = Typr.CFF.readIndex(data, offset, tdinds);
+		offset = Typr.CFF.readIndex(data, offset, tdinds);  //console.log(tdinds);
 		// Top DICT Data
 		var topDicts = [];
 		for(var i=0; i<tdinds.length-1; i++) topDicts.push( Typr.CFF.readDict(data, offset+tdinds[i], offset+tdinds[i+1]) );
@@ -60,27 +59,49 @@
 			//console.log(topdict.CharStrings);
 		}
 		
+		// CID font
+		if(topdict.ROS) {
+			offset = topdict.FDArray;
+			var fdind = [];
+			offset = Typr.CFF.readIndex(data, offset, fdind);
+			
+			topdict.FDArray = [];
+			for(var i=0; i<fdind.length-1; i++) {
+				var dict = Typr.CFF.readDict(data, offset+fdind[i], offset+fdind[i+1]);
+				Typr.CFF._readFDict(data, dict, strings);
+				topdict.FDArray.push( dict );
+			}
+			offset += fdind[fdind.length-1];
+			
+			offset = topdict.FDSelect;
+			topdict.FDSelect = [];
+			var fmt = data[offset];  offset++;
+			if(fmt==3) {
+				var rns = bin.readUshort(data, offset);  offset+=2;
+				for(var i=0; i<rns+1; i++) {
+					topdict.FDSelect.push(bin.readUshort(data, offset), data[offset+2]);  offset+=3;
+				}
+			}
+			else throw fmt;
+		}
+		
 		// Encoding
 		if(topdict.Encoding) topdict.Encoding = Typr.CFF.readEncoding(data, topdict.Encoding, topdict.CharStrings.length);
 		
 		// charset
 		if(topdict.charset ) topdict.charset  = Typr.CFF.readCharset (data, topdict.charset , topdict.CharStrings.length);
 		
-		if(topdict.Private)
-		{
-			offset = topdict.Private[1];
-			topdict.Private = Typr.CFF.readDict(data, offset, offset+topdict.Private[0]);
-			if(topdict.Private.Subrs)  Typr.CFF.readSubrs(data, offset+topdict.Private.Subrs, topdict.Private);
+		Typr.CFF._readFDict(data, topdict, strings);
+		return topdict;
+	}
+	Typr.CFF._readFDict = function(data, dict, ss) {
+		var offset;
+		if(dict.Private) {
+			offset = dict.Private[1];
+			dict.Private = Typr.CFF.readDict(data, offset, offset+dict.Private[0]);
+			if(dict.Private.Subrs)  Typr.CFF.readSubrs(data, offset+dict.Private.Subrs, dict.Private);
 		}
-		
-		var obj = {};
-		for(var p in topdict)
-		{
-			if(["FamilyName", "FullName", "Notice", "version", "Copyright"].indexOf(p) != -1)  obj[p] = strings[topdict[p] -426 + 35 ];
-			else obj[p] = topdict[p];
-		}
-		//console.log(obj);
-		return obj;
+		for(var p in dict) if(["FamilyName","FontName","FullName","Notice","version","Copyright"].indexOf(p)!=-1)  dict[p]=ss[dict[p] -426 + 35];
 	}
 	
 	Typr.CFF.readSubrs = function(data, offset, obj)
@@ -215,15 +236,15 @@
 	{
 		var bin = Typr._bin;
 		
-		var count = bin.readUshort(data, offset);  offset+=2;
+		var count = bin.readUshort(data, offset)+1;  offset+=2;
 		var offsize = data[offset];  offset++;
 		
-		if     (offsize==1) for(var i=0; i<count+1; i++) inds.push( data[offset+i] );
-		else if(offsize==2) for(var i=0; i<count+1; i++) inds.push( bin.readUshort(data, offset+i*2) );
-		else if(offsize==3) for(var i=0; i<count+1; i++) inds.push( bin.readUint  (data, offset+i*3 - 1) & 0x00ffffff );
-		else if(count!=0) throw "unsupported offset size: " + offsize + ", count: " + count;
+		if     (offsize==1) for(var i=0; i<count; i++) inds.push( data[offset+i] );
+		else if(offsize==2) for(var i=0; i<count; i++) inds.push( bin.readUshort(data, offset+i*2) );
+		else if(offsize==3) for(var i=0; i<count; i++) inds.push( bin.readUint  (data, offset+i*3 - 1) & 0x00ffffff );
+		else if(count!=1) throw "unsupported offset size: " + offsize + ", count: " + count;
 		
-		offset += (count+1)*offsize;
+		offset += count*offsize;
 		return offset-1;
 	}
 	
@@ -488,7 +509,7 @@ Typr.glyf._parseGlyf = function(font, g)
 	var bin = Typr._bin;
 	var data = font._data;
 	
-	var offset = Typr._tabOffset(data, "glyf") + font.loca[g];
+	var offset = Typr._tabOffset(data, "glyf", font._offset) + font.loca[g];
 		
 	if(font.loca[g]==font.loca[g+1]) return null;
 		
@@ -608,67 +629,92 @@ Typr.GPOS = {};
 Typr.GPOS.parse = function(data, offset, length, font) {  return Typr._lctf.parse(data, offset, length, font, Typr.GPOS.subt);  }
 
 
-
 Typr.GPOS.subt = function(data, ltype, offset)	// lookup type
 {
-	if(ltype!=2) return null;
-	
 	var bin = Typr._bin, offset0 = offset, tab = {};
 	
-	tab.format  = bin.readUshort(data, offset);  offset+=2;
-	var covOff  = bin.readUshort(data, offset);  offset+=2;
-	tab.coverage = Typr._lctf.readCoverage(data, covOff+offset0);
-	tab.valFmt1 = bin.readUshort(data, offset);  offset+=2;
-	tab.valFmt2 = bin.readUshort(data, offset);  offset+=2;
-	var ones1 = Typr._lctf.numOfOnes(tab.valFmt1);
-	var ones2 = Typr._lctf.numOfOnes(tab.valFmt2);
-	if(tab.format==1)
-	{
-		tab.pairsets = [];
-		var count = bin.readUshort(data, offset);  offset+=2;
-		
-		for(var i=0; i<count; i++)
+	tab.fmt  = bin.readUshort(data, offset);  offset+=2;
+	
+	//console.log(ltype, tab.fmt);
+	
+	if(ltype==1 || ltype==2 || ltype==3 || ltype==7 || (ltype==8 && tab.fmt<=2)) {
+		var covOff  = bin.readUshort(data, offset);  offset+=2;
+		tab.coverage = Typr._lctf.readCoverage(data, covOff+offset0);
+	}
+	if(ltype==1 && tab.fmt==1) {
+		var valFmt1 = bin.readUshort(data, offset);  offset+=2;
+		var ones1 = Typr._lctf.numOfOnes(valFmt1);
+		if(valFmt1!=0)  tab.pos = Typr.GPOS.readValueRecord(data, offset, valFmt1);
+	}
+	else if(ltype==2) {
+		var valFmt1 = bin.readUshort(data, offset);  offset+=2;
+		var valFmt2 = bin.readUshort(data, offset);  offset+=2;
+		var ones1 = Typr._lctf.numOfOnes(valFmt1);
+		var ones2 = Typr._lctf.numOfOnes(valFmt2);
+		if(tab.fmt==1)
 		{
-			var psoff = bin.readUshort(data, offset);  offset+=2;
-			psoff += offset0;
-			var pvcount = bin.readUshort(data, psoff);  psoff+=2;
-			var arr = [];
-			for(var j=0; j<pvcount; j++)
+			tab.pairsets = [];
+			var psc = bin.readUshort(data, offset);  offset+=2;  // PairSetCount
+			
+			for(var i=0; i<psc; i++)
 			{
-				var gid2 = bin.readUshort(data, psoff);  psoff+=2;
-				var value1, value2;
-				if(tab.valFmt1!=0) {  value1 = Typr._lctf.readValueRecord(data, psoff, tab.valFmt1);  psoff+=ones1*2;  }
-				if(tab.valFmt2!=0) {  value2 = Typr._lctf.readValueRecord(data, psoff, tab.valFmt2);  psoff+=ones2*2;  }
-				arr.push({gid2:gid2, val1:value1, val2:value2});
+				var psoff = offset0 + bin.readUshort(data, offset);  offset+=2;
+				
+				var pvc = bin.readUshort(data, psoff);  psoff+=2;
+				var arr = [];
+				for(var j=0; j<pvc; j++)
+				{
+					var gid2 = bin.readUshort(data, psoff);  psoff+=2;
+					var value1, value2;
+					if(valFmt1!=0) {  value1 = Typr.GPOS.readValueRecord(data, psoff, valFmt1);  psoff+=ones1*2;  }
+					if(valFmt2!=0) {  value2 = Typr.GPOS.readValueRecord(data, psoff, valFmt2);  psoff+=ones2*2;  }
+					//if(value1!=null) throw "e";
+					arr.push({gid2:gid2, val1:value1, val2:value2});
+				}
+				tab.pairsets.push(arr);
 			}
-			tab.pairsets.push(arr);
+		}
+		if(tab.fmt==2)
+		{
+			var classDef1 = bin.readUshort(data, offset);  offset+=2;
+			var classDef2 = bin.readUshort(data, offset);  offset+=2;
+			var class1Count = bin.readUshort(data, offset);  offset+=2;
+			var class2Count = bin.readUshort(data, offset);  offset+=2;
+			
+			tab.classDef1 = Typr._lctf.readClassDef(data, offset0 + classDef1);
+			tab.classDef2 = Typr._lctf.readClassDef(data, offset0 + classDef2);
+			
+			tab.matrix = [];
+			for(var i=0; i<class1Count; i++)
+			{
+				var row = [];
+				for(var j=0; j<class2Count; j++)
+				{
+					var value1 = null, value2 = null;
+					if(tab.valFmt1!=0) { value1 = Typr.GPOS.readValueRecord(data, offset, tab.valFmt1);  offset+=ones1*2; }
+					if(tab.valFmt2!=0) { value2 = Typr.GPOS.readValueRecord(data, offset, tab.valFmt2);  offset+=ones2*2; }
+					row.push({val1:value1, val2:value2});
+				}
+				tab.matrix.push(row);
+			}
 		}
 	}
-	if(tab.format==2)
-	{
-		var classDef1 = bin.readUshort(data, offset);  offset+=2;
-		var classDef2 = bin.readUshort(data, offset);  offset+=2;
-		var class1Count = bin.readUshort(data, offset);  offset+=2;
-		var class2Count = bin.readUshort(data, offset);  offset+=2;
+	else if(ltype==4) {
 		
-		tab.classDef1 = Typr._lctf.readClassDef(data, offset0 + classDef1);
-		tab.classDef2 = Typr._lctf.readClassDef(data, offset0 + classDef2);
-		
-		tab.matrix = [];
-		for(var i=0; i<class1Count; i++)
-		{
-			var row = [];
-			for(var j=0; j<class2Count; j++)
-			{
-				var value1 = null, value2 = null;
-				if(tab.valFmt1!=0) { value1 = Typr._lctf.readValueRecord(data, offset, tab.valFmt1);  offset+=ones1*2; }
-				if(tab.valFmt2!=0) { value2 = Typr._lctf.readValueRecord(data, offset, tab.valFmt2);  offset+=ones2*2; }
-				row.push({val1:value1, val2:value2});
-			}
-			tab.matrix.push(row);
-		}
 	}
 	return tab;
+}
+
+
+Typr.GPOS.readValueRecord = function(data, offset, valFmt)
+{
+	var bin = Typr._bin;
+	var arr = [];
+	arr.push( (valFmt&1) ? bin.readShort(data, offset) : 0 );  offset += (valFmt&1) ? 2 : 0;  // X_PLACEMENT
+	arr.push( (valFmt&2) ? bin.readShort(data, offset) : 0 );  offset += (valFmt&2) ? 2 : 0;  // Y_PLACEMENT
+	arr.push( (valFmt&4) ? bin.readShort(data, offset) : 0 );  offset += (valFmt&4) ? 2 : 0;  // X_ADVANCE
+	arr.push( (valFmt&8) ? bin.readShort(data, offset) : 0 );  offset += (valFmt&8) ? 2 : 0;  // Y_ADVANCE
+	return arr;
 }
 
 Typr.GSUB = {};
@@ -679,11 +725,14 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 {
 	var bin = Typr._bin, offset0 = offset, tab = {};
 	
-	if(ltype!=1 && ltype!=4 && ltype!=5) return null;
-	
 	tab.fmt  = bin.readUshort(data, offset);  offset+=2;
-	var covOff  = bin.readUshort(data, offset);  offset+=2;
-	tab.coverage = Typr._lctf.readCoverage(data, covOff+offset0);	// not always is coverage here
+	
+	if(ltype!=1 && ltype!=4 && ltype!=5 && ltype!=6) return null;
+	
+	if(ltype==1 || ltype==4 || (ltype==5 && tab.fmt<=2) || (ltype==6 && tab.fmt<=2)) {
+		var covOff  = bin.readUshort(data, offset);  offset+=2;
+		tab.coverage = Typr._lctf.readCoverage(data, offset0+covOff);	// not always is coverage here
+	}
 	
 	if(false) {}
 	//  Single Substitution Subtable
@@ -720,12 +769,12 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 				tab.scset.push(  scsOff==0 ? null : Typr.GSUB.readSubClassSet(data, offset0 + scsOff)  );
 			}
 		}
-		else console.log("unknown table format", tab.fmt);
+		//else console.log("unknown table format", tab.fmt);
 	}
-	
-	/*
+	//*
 	else if(ltype==6) {
-		if(fmt==2) {
+		/*
+		if(tab.fmt==2) {
 			var btDef = bin.readUshort(data, offset);  offset+=2;
 			var inDef = bin.readUshort(data, offset);  offset+=2;
 			var laDef = bin.readUshort(data, offset);  offset+=2;
@@ -741,7 +790,22 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 				tab.scset.push(Typr.GSUB.readChainSubClassSet(data, offset0+loff));
 			}
 		}
-	} */
+		*/
+		if(tab.fmt==3) {
+			for(var i=0; i<3; i++) {
+				var cnt = bin.readUshort(data, offset);  offset+=2;
+				var cvgs = [];
+				for(var j=0; j<cnt; j++) cvgs.push(  Typr._lctf.readCoverage(data, offset0 + bin.readUshort(data, offset+j*2))   );
+				offset+=cnt*2;
+				if(i==0) tab.backCvg = cvgs;
+				if(i==1) tab.inptCvg = cvgs;
+				if(i==2) tab.ahedCvg = cvgs;
+			}
+			var cnt = bin.readUshort(data, offset);  offset+=2;
+			tab.lookupRec = Typr.GSUB.readSubstLookupRecords(data, offset, cnt);
+		}
+		//console.log(tab);
+	} //*/
 	//if(tab.coverage.indexOf(3)!=-1) console.log(ltype, fmt, tab);
 	
 	return tab;
@@ -1024,8 +1088,35 @@ Typr.name.parse = function(data, offset, length)
 	var count  = bin.readUshort(data, offset);  offset += 2;
 	var stringOffset = bin.readUshort(data, offset);  offset += 2;
 	
+	//console.log(format,count);
 	
-	//console.log(format, count);
+	var names = [
+		"copyright",
+		"fontFamily",
+		"fontSubfamily",
+		"ID",
+		"fullName",
+		"version",
+		"postScriptName",
+		"trademark",
+		"manufacturer",
+		"designer",
+		"description",
+		"urlVendor",
+		"urlDesigner",
+		"licence",
+		"licenceURL",
+		"---",
+		"typoFamilyName",
+		"typoSubfamilyName",
+		"compatibleFull",
+		"sampleText",
+		"postScriptCID",
+		"wwsFamilyName",
+		"wwsSubfamilyName",
+		"lightPalette",
+		"darkPalette"
+	];
 	
 	var offset0 = offset;
 	
@@ -1035,55 +1126,28 @@ Typr.name.parse = function(data, offset, length)
 		var encodingID = bin.readUshort(data, offset);  offset += 2;
 		var languageID = bin.readUshort(data, offset);  offset += 2;
 		var nameID     = bin.readUshort(data, offset);  offset += 2;
-		var length     = bin.readUshort(data, offset);  offset += 2;
+		var slen       = bin.readUshort(data, offset);  offset += 2;
 		var noffset    = bin.readUshort(data, offset);  offset += 2;
 		//console.log(platformID, encodingID, languageID.toString(16), nameID, length, noffset);
 		
-		var plat = "p"+platformID;//Typr._platforms[platformID];
-		if(obj[plat]==null) obj[plat] = {};
-		
-		var names = [
-			"copyright",
-			"fontFamily",
-			"fontSubfamily",
-			"ID",
-			"fullName",
-			"version",
-			"postScriptName",
-			"trademark",
-			"manufacturer",
-			"designer",
-			"description",
-			"urlVendor",
-			"urlDesigner",
-			"licence",
-			"licenceURL",
-			"---",
-			"typoFamilyName",
-			"typoSubfamilyName",
-			"compatibleFull",
-			"sampleText",
-			"postScriptCID",
-			"wwsFamilyName",
-			"wwsSubfamilyName",
-			"lightPalette",
-			"darkPalette"
-		];
 		var cname = names[nameID];
 		var soff = offset0 + count*12 + noffset;
 		var str;
 		if(false){}
-		else if(platformID == 0) str = bin.readUnicode(data, soff, length/2);
-		else if(platformID == 3 && encodingID == 0) str = bin.readUnicode(data, soff, length/2);
-		else if(encodingID == 0) str = bin.readASCII  (data, soff, length);
-		else if(encodingID == 1) str = bin.readUnicode(data, soff, length/2);
-		else if(encodingID == 3) str = bin.readUnicode(data, soff, length/2);
+		else if(platformID == 0) str = bin.readUnicode(data, soff, slen/2);
+		else if(platformID == 3 && encodingID == 0) str = bin.readUnicode(data, soff, slen/2);
+		else if(encodingID == 0) str = bin.readASCII  (data, soff, slen);
+		else if(encodingID == 1) str = bin.readUnicode(data, soff, slen/2);
+		else if(encodingID == 3) str = bin.readUnicode(data, soff, slen/2);
 		
-		else if(platformID == 1) { str = bin.readASCII(data, soff, length);  console.log("reading unknown MAC encoding "+encodingID+" as ASCII") }
+		else if(platformID == 1) { str = bin.readASCII(data, soff, slen);  console.log("reading unknown MAC encoding "+encodingID+" as ASCII") }
 		else throw "unknown encoding "+encodingID + ", platformID: "+platformID;
 		
-		obj[plat][cname] = str;
-		obj[plat]._lang = languageID;
+		var tid = "p"+platformID+","+(languageID).toString(16);//Typr._platforms[platformID];
+		if(obj[tid]==null) obj[tid] = {};
+		obj[tid][cname] = str;
+		obj[tid]._lang = languageID;
+		//console.log(tid, obj[tid]);
 	}
 	/*
 	if(format == 1)
@@ -1100,6 +1164,7 @@ Typr.name.parse = function(data, offset, length)
 	//console.log(obj);
 	
 	for(var p in obj) if(obj[p].postScriptName!=null && obj[p]._lang==0x0409) return obj[p];		// United States
+	for(var p in obj) if(obj[p].postScriptName!=null && obj[p]._lang==0x0000) return obj[p];		// Universal
 	for(var p in obj) if(obj[p].postScriptName!=null && obj[p]._lang==0x0c0c) return obj[p];		// Canada
 	for(var p in obj) if(obj[p].postScriptName!=null) return obj[p];
 	

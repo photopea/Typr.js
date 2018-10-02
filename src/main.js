@@ -6,7 +6,26 @@ Typr.parse = function(buff)
 {
 	var bin = Typr._bin;
 	var data = new Uint8Array(buff);
-	var offset = 0;
+	
+	var tag = bin.readASCII(data, 0, 4);  
+	if(tag=="ttcf") {
+		var offset = 4;
+		var majV = bin.readUshort(data, offset);  offset+=2;
+		var minV = bin.readUshort(data, offset);  offset+=2;
+		var numF = bin.readUint  (data, offset);  offset+=4;
+		var fnts = [];
+		for(var i=0; i<numF; i++) {
+			var foff = bin.readUint  (data, offset);  offset+=4;
+			fnts.push(Typr._readFont(data, foff));
+		}
+		return fnts;
+	}
+	else return [Typr._readFont(data, 0)];
+}
+
+Typr._readFont = function(data, offset) {
+	var bin = Typr._bin;
+	var ooff = offset;
 	
 	var sfnt_version = bin.readFixed(data, offset);
 	offset += 4;
@@ -48,7 +67,7 @@ Typr.parse = function(buff)
 		//"VORG",
 		];
 	
-	var obj = {_data:data};
+	var obj = {_data:data, _offset:ooff};
 	//console.log(sfnt_version, numTables, searchRange, entrySelector, rangeShift);
 	
 	var tabs = {};
@@ -75,11 +94,11 @@ Typr.parse = function(buff)
 	return obj;
 }
 
-Typr._tabOffset = function(data, tab)
+Typr._tabOffset = function(data, tab, foff)
 {
 	var bin = Typr._bin;
-	var numTables = bin.readUshort(data, 4);
-	var offset = 12;
+	var numTables = bin.readUshort(data, foff+4);
+	var offset = foff+12;
 	for(var i=0; i<numTables; i++)
 	{
 		var tag = bin.readASCII(data, offset, 4);   offset += 4;

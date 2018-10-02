@@ -13,7 +13,7 @@ Typr.glyf._parseGlyf = function(font, g)
 	var bin = Typr._bin;
 	var data = font._data;
 	
-	var offset = Typr._tabOffset(data, "glyf") + font.loca[g];
+	var offset = Typr._tabOffset(data, "glyf", font._offset) + font.loca[g];
 		
 	if(font.loca[g]==font.loca[g+1]) return null;
 		
