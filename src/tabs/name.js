@@ -66,7 +66,7 @@ Typr.name.parse = function(data, offset, length)
 		
 		var tid = "p"+platformID+","+(languageID).toString(16);//Typr._platforms[platformID];
 		if(obj[tid]==null) obj[tid] = {};
-		obj[tid][cname] = str;
+		obj[tid][cname !== undefined ? cname : nameID] = str;
 		obj[tid]._lang = languageID;
 		//console.log(tid, obj[tid]);
 	}
