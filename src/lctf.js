@@ -140,7 +140,9 @@ Typr._lctf.readFeatureList = function(data, offset)
 	{
 		var tag = bin.readASCII(data, offset, 4);  offset+=4;
 		var noff = bin.readUshort(data, offset);  offset+=2;
-		obj.push({tag: tag.trim(), tab:Typr._lctf.readFeatureTable(data, offset0 + noff)});
+		var feat = Typr._lctf.readFeatureTable(data, offset0 + noff);
+		feat.tag = tag.trim();
+		obj.push(feat);
 	}
 	return obj;
 }
@@ -148,13 +150,18 @@ Typr._lctf.readFeatureList = function(data, offset)
 Typr._lctf.readFeatureTable = function(data, offset)
 {
 	var bin = Typr._bin;
+	var offset0 = offset
+	var feat = {};
 	
-	var featureParams = bin.readUshort(data, offset);  offset+=2;	// = 0
+	var featureParams = bin.readUshort(data, offset); offset+=2;
+	if (featureParams > 0) {
+		feat.featureParams = offset0 + featureParams;
+	}
+	
 	var lookupCount = bin.readUshort(data, offset);  offset+=2;
-	
-	var indices = [];
-	for(var i=0; i<lookupCount; i++) indices.push(bin.readUshort(data, offset+2*i));
-	return indices;
+	feat.tab = [];
+	for(var i=0; i<lookupCount; i++) feat.tab.push(bin.readUshort(data, offset+2*i));
+	return feat;
 }
 
 
