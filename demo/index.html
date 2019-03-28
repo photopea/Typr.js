@@ -54,6 +54,7 @@
 
 	<script type="text/javascript" src="../src/Typr.js"></script>
 	<script type="text/javascript" src="../src/Typr.U.js"></script>
+	<script type="text/javascript" src="../src/harfbuzzjs.js"></script>
 		
 	<script type="text/javascript">
 	
@@ -111,6 +112,10 @@
 			drawGlyphs();  
 			drawGlyph();
 			drawWord();
+
+			Module().then(function (module) {
+				console.log(Typr.U.shapeStringToGlyphs(module, font._data, 'Text'));
+			})
 		}
 		
 		function drawGlyphs()

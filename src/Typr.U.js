@@ -803,3 +803,50 @@ Typr.U._drawCFF = function(cmds, state, font, pdct, p)
 	//console.log(cmds);
 	state.x=x; state.y=y; state.nStems=nStems; state.haveWidth=haveWidth; state.width=width; state.open=open;
 }
+
+Typr.U.shapeStringToGlyphs = (function () {
+	var utf8Decoder = new TextDecoder("utf8");
+	function bufferToString(buffer) {
+		return utf8Decoder.decode(buffer.slice(0, buffer.indexOf(0)));
+	}
+	var utf8Encoder = new TextEncoder("utf8");
+
+	return function (module, _font, str) {
+		var fontBuffer = module._malloc(_font.byteLength);
+		module.HEAPU8.set(_font, fontBuffer);
+
+		var blob = module._hb_blob_create(fontBuffer, _font.byteLength, 2/*HB_MEMORY_MODE_WRITABLE*/, 0, 0);
+		var face = module._hb_face_create(blob, 0);
+		var font = module._hb_font_create(face);
+
+		var buffer = module._hb_buffer_create();
+		{
+			var text = utf8Encoder.encode(str);
+			var text_ptr = module._malloc(text.byteLength + 1);
+			module.HEAPU8.set(text, text_ptr);
+			module.HEAPU8[text_ptr+text.byteLength] = 0;
+			module._hb_buffer_add_utf8(buffer, text_ptr, -1, 0, -1);
+			module._free(text_ptr);
+		}
+		module._hb_buffer_guess_segment_properties(buffer);
+
+		module._hb_shape(font, buffer, 0, 0);
+
+		var out = module._malloc(4096);
+		module._hb_buffer_serialize_glyphs(
+			buffer, 0, module._hb_buffer_get_length(buffer),
+			out, 4096, 0, font, 1246973774/*JSON*/,
+			4/*HB_BUFFER_SERIALIZE_FLAG_NO_GLYPH_NAMES*/
+		);
+		var result = module.HEAP8.slice(out, out+4096);
+		var json = JSON.parse('[' + bufferToString(result) + ']');
+
+		module._hb_buffer_destroy(buffer);
+		module._hb_font_destroy(font);
+		module._hb_face_destroy(face);
+		module._free(out);
+		module._free(fontBuffer);
+
+		return json;
+	}
+}());
