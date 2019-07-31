@@ -174,6 +174,23 @@ utility.getPairAdjustment = function (font, g1, g2) {
   return 0;
 }
 
+utility.cleanString = function (font, str) {
+  var cleanedString = "";
+
+  for (var i = 0; i < str.length; i++) {
+    var char = str.charAt(i);
+
+    // Only add the character if it has a correspondent glyph representation 
+    // in the font table and if it is not a whitespace character (because otherwise
+    // the newline character would be removed)
+
+    if (!utility.stringToGlyphs(font, char).some(x => x == 0) || char.match(/\s/))
+      cleanedString += char;
+  }
+
+  return cleanedString;
+}
+
 utility.stringToGlyphs = function (font, str) {
   var gls = [];
   for (var i = 0; i < str.length; i++) gls.push(utility.codeToGlyph(font, str.charCodeAt(i)));
