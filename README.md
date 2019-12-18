@@ -1,3 +1,22 @@
+## This is a fork from [photopea/Typr.js](https://github.com/photopea/Typr.js)
+
+I wanted to use typr more in a library way in my svg project, and it felt like a different time and ecosystem to me.
+That's why this fork is heavily refactored, I got rid of scripts I don't need... I did this in private and the diff I created for this fork is too large for git to properly keep track of modifications.
+
+Summary:
+* kept functionality and api
+* converted vars to consts/lets
+* used imports/exports instead of the global scope
+* added a rudimentary package.json
+
+Usage:
+```javascript
+import typr from 'typr';
+
+const font = typr.parse(buffer);
+console.log(font);
+```
+
 # Typr.js  
 
 [LIVE DEMO](https://photopea.github.io/Typr.js) Typr.js is a Javascript parser and utility for working with fonts (TTF, OTF). It is an alternative to [opentype.js](https://github.com/nodebox/opentype.js). It is the main text engine for [Photopea image editor](https://www.photopea.com).
