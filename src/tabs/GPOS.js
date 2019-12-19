@@ -21,7 +21,7 @@ Typr.GPOS.subt = function(data, ltype, offset)	// lookup type
 		var ones1 = Typr._lctf.numOfOnes(valFmt1);
 		if(valFmt1!=0)  tab.pos = Typr.GPOS.readValueRecord(data, offset, valFmt1);
 	}
-	else if(ltype==2) {
+	else if(ltype==2 && tab.fmt>=1 && tab.fmt<=2) {
 		var valFmt1 = bin.readUshort(data, offset);  offset+=2;
 		var valFmt2 = bin.readUshort(data, offset);  offset+=2;
 		var ones1 = Typr._lctf.numOfOnes(valFmt1);
@@ -66,8 +66,8 @@ Typr.GPOS.subt = function(data, ltype, offset)	// lookup type
 				for(var j=0; j<class2Count; j++)
 				{
 					var value1 = null, value2 = null;
-					if(tab.valFmt1!=0) { value1 = Typr.GPOS.readValueRecord(data, offset, tab.valFmt1);  offset+=ones1*2; }
-					if(tab.valFmt2!=0) { value2 = Typr.GPOS.readValueRecord(data, offset, tab.valFmt2);  offset+=ones2*2; }
+					if(valFmt1!=0) { value1 = Typr.GPOS.readValueRecord(data, offset, valFmt1);  offset+=ones1*2; }
+					if(valFmt2!=0) { value2 = Typr.GPOS.readValueRecord(data, offset, valFmt2);  offset+=ones2*2; }
 					row.push({val1:value1, val2:value2});
 				}
 				tab.matrix.push(row);
