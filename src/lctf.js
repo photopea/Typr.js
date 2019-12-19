@@ -49,10 +49,11 @@ Typr._lctf.readLookupTable = function(data, offset, subt)
 	obj.flag  = bin.readUshort(data, offset);  offset+=2;
 	var cnt   = bin.readUshort(data, offset);  offset+=2;
 	
+	var ltype = obj.ltype; // extension substitution can change this value
 	for(var i=0; i<cnt; i++)
 	{
 		var noff = bin.readUshort(data, offset);  offset+=2;
-		var tab = subt(data, obj.ltype, offset0 + noff);
+		var tab = subt(data, ltype, offset0 + noff, obj);
 		//console.warn(obj.type, tab);
 		obj.tabs.push(tab);
 	}

@@ -4,7 +4,7 @@ Typr.GPOS = {};
 Typr.GPOS.parse = function(data, offset, length, font) {  return Typr._lctf.parse(data, offset, length, font, Typr.GPOS.subt);  }
 
 
-Typr.GPOS.subt = function(data, ltype, offset)	// lookup type
+Typr.GPOS.subt = function(data, ltype, offset, ltable)	// lookup type
 {
 	var bin = Typr._bin, offset0 = offset, tab = {};
 	
@@ -74,9 +74,19 @@ Typr.GPOS.subt = function(data, ltype, offset)	// lookup type
 			}
 		}
 	}
-	else if(ltype==4) {
-		
+	else if(ltype==9 && tab.fmt==1) {
+		var extType = bin.readUshort(data, offset);  offset+=2;
+		var extOffset = bin.readUint(data, offset);  offset+=4;
+		if (ltable.ltype==9) {
+			ltable.ltype = extType;
+		} else if (ltable.ltype!=extType) {
+			throw "invalid extension substitution"; // all subtables must be the same type
+		}
+		return Typr.GPOS.subt(data, ltable.ltype, offset0+extOffset);
 	}
+	/*else if(ltype==4) {
+		
+	}*/
 	return tab;
 }
 

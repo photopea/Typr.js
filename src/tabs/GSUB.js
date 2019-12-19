@@ -4,7 +4,7 @@ Typr.GSUB = {};
 Typr.GSUB.parse = function(data, offset, length, font) {  return Typr._lctf.parse(data, offset, length, font, Typr.GSUB.subt);  }
 
 
-Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
+Typr.GSUB.subt = function(data, ltype, offset, ltable)	// lookup type
 {
 	var bin = Typr._bin, offset0 = offset, tab = {};
 	
@@ -19,7 +19,7 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 	
 	if(false) {}
 	//  Single Substitution Subtable
-	else if(ltype==1) {	
+	else if(ltype==1 && tab.fmt>=1 && tab.fmt<=2) {	
 		if(tab.fmt==1) {
 			tab.delta = bin.readShort(data, offset);  offset+=2;
 		}
@@ -40,7 +40,7 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 		//console.warn(tab.vals);
 	} 
 	//  Contextual Substitution Subtable
-	else if(ltype==5) {
+	else if(ltype==5 && tab.fmt==2) {
 		if(tab.fmt==2) {
 			var cDefOffset = bin.readUshort(data, offset);  offset+=2;
 			tab.cDef = Typr._lctf.readClassDef(data, offset0 + cDefOffset);
@@ -55,7 +55,7 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 		//else console.warn("unknown table format", tab.fmt);
 	}
 	//*
-	else if(ltype==6) {
+	else if(ltype==6 && tab.fmt==3) {
 		/*
 		if(tab.fmt==2) {
 			var btDef = bin.readUshort(data, offset);  offset+=2;
@@ -89,6 +89,16 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 		}
 		//console.warn(tab);
 	} //*/
+	else if(ltype==7 && tab.fmt==1) {
+		var extType = bin.readUshort(data, offset);  offset+=2;
+		var extOffset = bin.readUint(data, offset);  offset+=4;
+		if (ltable.ltype==9) {
+			ltable.ltype = extType;
+		} else if (ltable.ltype!=extType) {
+			throw "invalid extension substitution"; // all subtables must be the same type
+		}
+		return Typr.GSUB.subt(data, ltable.ltype, offset0+extOffset);
+	}
 	//if(tab.coverage.indexOf(3)!=-1) console.warn(ltype, fmt, tab);
 	
 	return tab;
