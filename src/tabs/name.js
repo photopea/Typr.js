@@ -9,7 +9,7 @@ Typr.name.parse = function(data, offset, length)
 	var count  = bin.readUshort(data, offset);  offset += 2;
 	var stringOffset = bin.readUshort(data, offset);  offset += 2;
 	
-	//console.log(format,count);
+	//console.warn(format,count);
 	
 	var names = [
 		"copyright",
@@ -49,7 +49,7 @@ Typr.name.parse = function(data, offset, length)
 		var nameID     = bin.readUshort(data, offset);  offset += 2;
 		var slen       = bin.readUshort(data, offset);  offset += 2;
 		var noffset    = bin.readUshort(data, offset);  offset += 2;
-		//console.log(platformID, encodingID, languageID.toString(16), nameID, length, noffset);
+		//console.warn(platformID, encodingID, languageID.toString(16), nameID, length, noffset);
 		
 		var cname = names[nameID];
 		var soff = offset0 + count*12 + noffset;
@@ -61,14 +61,14 @@ Typr.name.parse = function(data, offset, length)
 		else if(encodingID == 1) str = bin.readUnicode(data, soff, slen/2);
 		else if(encodingID == 3) str = bin.readUnicode(data, soff, slen/2);
 		
-		else if(platformID == 1) { str = bin.readASCII(data, soff, slen);  console.log("reading unknown MAC encoding "+encodingID+" as ASCII") }
+		else if(platformID == 1) { str = bin.readASCII(data, soff, slen);  console.warn("reading unknown MAC encoding "+encodingID+" as ASCII") }
 		else throw "unknown encoding "+encodingID + ", platformID: "+platformID;
 		
 		var tid = "p"+platformID+","+(languageID).toString(16);//Typr._platforms[platformID];
 		if(obj[tid]==null) obj[tid] = {};
 		obj[tid][cname !== undefined ? cname : nameID] = str;
 		obj[tid]._lang = languageID;
-		//console.log(tid, obj[tid]);
+		//console.warn(tid, obj[tid]);
 	}
 	/*
 	if(format == 1)
@@ -82,7 +82,7 @@ Typr.name.parse = function(data, offset, length)
 	}
 	*/
 	
-	//console.log(obj);
+	//console.warn(obj);
 	
 	for(var p in obj) if(obj[p].postScriptName!=null && obj[p]._lang==0x0409) return obj[p];		// United States
 	for(var p in obj) if(obj[p].postScriptName!=null && obj[p]._lang==0x0000) return obj[p];		// Universal
@@ -91,6 +91,6 @@ Typr.name.parse = function(data, offset, length)
 	
 	var tname;
 	for(var p in obj) { tname=p; break; }
-	console.log("returning name table with languageID "+ obj[tname]._lang);
+	console.warn("returning name table with languageID "+ obj[tname]._lang);
 	return obj[tname];
 }

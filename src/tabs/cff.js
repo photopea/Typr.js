@@ -13,7 +13,7 @@
 		var minor = data[offset];  offset++;
 		var hdrSize = data[offset];  offset++;
 		var offsize = data[offset];  offset++;
-		//console.log(major, minor, hdrSize, offsize);
+		//console.warn(major, minor, hdrSize, offsize);
 		
 		// Name INDEX
 		var ninds = [];
@@ -26,13 +26,13 @@
 		
 		// Top DICT INDEX
 		var tdinds = [];
-		offset = Typr.CFF.readIndex(data, offset, tdinds);  //console.log(tdinds);
+		offset = Typr.CFF.readIndex(data, offset, tdinds);  //console.warn(tdinds);
 		// Top DICT Data
 		var topDicts = [];
 		for(var i=0; i<tdinds.length-1; i++) topDicts.push( Typr.CFF.readDict(data, offset+tdinds[i], offset+tdinds[i+1]) );
 		offset += tdinds[tdinds.length-1];
 		var topdict = topDicts[0];
-		//console.log(topdict);
+		//console.warn(topdict);
 		
 		// String INDEX
 		var sinds = [];
@@ -56,7 +56,7 @@
 			for(var i=0; i<sinds.length-1; i++) cstr.push(bin.readBytes(data, offset+sinds[i], sinds[i+1]-sinds[i]));
 			//offset += sinds[sinds.length-1];
 			topdict.CharStrings = cstr;
-			//console.log(topdict.CharStrings);
+			//console.warn(topdict.CharStrings);
 		}
 		
 		// CID font
@@ -175,8 +175,8 @@
 		
 		var array = ['.notdef'];
 		var format = data[offset];  offset++;
-		//console.log("Encoding");
-		//console.log(format);
+		//console.warn("Encoding");
+		//console.warn(format);
 		
 		if(format==0)
 		{
@@ -299,7 +299,7 @@
 
 			//var cv = arr[arr.length-1];
 			//if(cv==undefined) throw "error";
-			//console.log()
+			//console.warn()
 		}	
 		return arr;
 	}
@@ -338,7 +338,7 @@
 				var s = "";
 				var chars = [0,1,2,3,4,5,6,7,8,9,".","e","e-","reserved","-","endOfNumber"];
 				for(var i=0; i<nibs.length; i++) s += chars[nibs[i]];
-				//console.log(nibs);
+				//console.warn(nibs);
 				val = parseFloat(s);
 			}
 			

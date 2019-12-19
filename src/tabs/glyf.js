@@ -70,7 +70,7 @@ Typr.glyf._parseGlyf = function(font, g)
 		}
 		var x = 0, y = 0;
 		for(var i=0; i<crdnum; i++) { x += gl.xs[i]; y += gl.ys[i];  gl.xs[i]=x;  gl.ys[i]=y; }
-		//console.log(endPtsOfContours, instructionLength, instructions, flags, xCoordinates, yCoordinates);
+		//console.warn(endPtsOfContours, instructionLength, instructions, flags, xCoordinates, yCoordinates);
 	}
 	else
 	{

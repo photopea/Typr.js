@@ -36,8 +36,8 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 			var loff = bin.readUshort(data, offset);  offset+=2;
 			tab.vals.push(Typr.GSUB.readLigatureSet(data, offset0+loff));
 		}
-		//console.log(tab.coverage);
-		//console.log(tab.vals);
+		//console.warn(tab.coverage);
+		//console.warn(tab.vals);
 	} 
 	//  Contextual Substitution Subtable
 	else if(ltype==5) {
@@ -52,7 +52,7 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 				tab.scset.push(  scsOff==0 ? null : Typr.GSUB.readSubClassSet(data, offset0 + scsOff)  );
 			}
 		}
-		//else console.log("unknown table format", tab.fmt);
+		//else console.warn("unknown table format", tab.fmt);
 	}
 	//*
 	else if(ltype==6) {
@@ -87,9 +87,9 @@ Typr.GSUB.subt = function(data, ltype, offset)	// lookup type
 			var cnt = bin.readUshort(data, offset);  offset+=2;
 			tab.lookupRec = Typr.GSUB.readSubstLookupRecords(data, offset, cnt);
 		}
-		//console.log(tab);
+		//console.warn(tab);
 	} //*/
-	//if(tab.coverage.indexOf(3)!=-1) console.log(ltype, fmt, tab);
+	//if(tab.coverage.indexOf(3)!=-1) console.warn(ltype, fmt, tab);
 	
 	return tab;
 }

@@ -68,7 +68,7 @@ Typr._readFont = function(data, offset) {
 		];
 	
 	var obj = {_data:data, _offset:ooff};
-	//console.log(sfnt_version, numTables, searchRange, entrySelector, rangeShift);
+	//console.warn(sfnt_version, numTables, searchRange, entrySelector, rangeShift);
 	
 	var tabs = {};
 	
@@ -80,14 +80,14 @@ Typr._readFont = function(data, offset) {
 		var length = bin.readUint(data, offset);    offset += 4;
 		tabs[tag] = {offset:toffset, length:length};
 		
-		//if(tags.indexOf(tag)==-1) console.log("unknown tag", tag, length);
+		//if(tags.indexOf(tag)==-1) console.warn("unknown tag", tag, length);
 	}
 	
 	for(var i=0; i< tags.length; i++)
 	{
 		var t = tags[i];
-		//console.log(t);
-		//if(tabs[t]) console.log(t, tabs[t].offset, tabs[t].length);
+		//console.warn(t);
+		//if(tabs[t]) console.warn(t, tabs[t].offset, tabs[t].length);
 		if(tabs[t]) obj[t.trim()] = Typr[t.trim()].parse(data, tabs[t].offset, tabs[t].length, obj);
 	}
 	

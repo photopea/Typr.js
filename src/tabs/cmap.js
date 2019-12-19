@@ -12,7 +12,7 @@ Typr.cmap.parse = function(data, offset, length)
 	var version   = bin.readUshort(data, offset);  offset += 2;
 	var numTables = bin.readUshort(data, offset);  offset += 2;
 	
-	//console.log(version, numTables);
+	//console.warn(version, numTables);
 	
 	var offs = [];
 	obj.tables = [];
@@ -26,7 +26,7 @@ Typr.cmap.parse = function(data, offset, length)
 		
 		var id = "p"+platformID+"e"+encodingID;
 		
-		//console.log("cmap subtable", platformID, encodingID, noffset);
+		//console.warn("cmap subtable", platformID, encodingID, noffset);
 		
 		
 		var tind = offs.indexOf(noffset);
@@ -41,7 +41,7 @@ Typr.cmap.parse = function(data, offset, length)
 			else if(format== 4) subt = Typr.cmap.parse4(data, noffset);
 			else if(format== 6) subt = Typr.cmap.parse6(data, noffset);
 			else if(format==12) subt = Typr.cmap.parse12(data,noffset);
-			else console.log("unknown format: "+format, platformID, encodingID, noffset);
+			else console.warn("unknown format: "+format, platformID, encodingID, noffset);
 			obj.tables.push(subt);
 		}
 		

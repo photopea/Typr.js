@@ -159,12 +159,12 @@ Typr.U.getPairAdjustment = function(font, g1, g2)
 		var tused = [];
 		for(var i=0; i<flist.length; i++) 
 		{
-			var fl = flist[i];  //console.log(fl);
+			var fl = flist[i];  //console.warn(fl);
 			if(fl.tag!="kern") continue;
 			for(var ti=0; ti<fl.tab.length; ti++) {
 				if(tused[fl.tab[ti]]) continue;  tused[fl.tab[ti]] = true;
 				var tab = llist[fl.tab[ti]];
-				//console.log(tab);
+				//console.warn(tab);
 				
 				for(var j=0; j<tab.tabs.length; j++)
 				{
@@ -173,7 +173,7 @@ Typr.U.getPairAdjustment = function(font, g1, g2)
 					if(ltab.coverage) {  ind = Typr._lctf.coverageIndex(ltab.coverage, g1);  if(ind==-1) continue;  }
 					
 					if(tab.ltype==1) {
-						//console.log(ltab);
+						//console.warn(ltab);
 					}
 					else if(tab.ltype==2)
 					{
@@ -224,9 +224,9 @@ Typr.U.stringToGlyphs = function(font, str)
 		//if(cc==2381) {  var t=gls[i+1];  gls[i+1]=gls[i];  gls[i]=t;  }
 		if(cc>0xffff) i++;
 	}
-	//console.log(gls.slice(0));
+	//console.warn(gls.slice(0));
 	
-	//console.log(gls);  return gls;
+	//console.warn(gls);  return gls;
 	
 	var gsub = font["GSUB"];  if(gsub==null) return gls;
 	var llist = gsub.lookupList, flist = gsub.featureList;
@@ -234,19 +234,19 @@ Typr.U.stringToGlyphs = function(font, str)
 	var cligs = ["rlig", "liga", "mset",  "isol","init","fina","medi",   "half", "pres", 
 				"blws" /* Tibetan fonts like Himalaya.ttf */ ];
 	
-	//console.log(gls.slice(0));
+	//console.warn(gls.slice(0));
 	var tused = [];
 	for(var fi=0; fi<flist.length; fi++)
 	{
 		var fl = flist[fi];  if(cligs.indexOf(fl.tag)==-1) continue;
 		//if(fl.tag=="blwf") continue;
-		//console.log(fl);
-		//console.log(fl.tag);
+		//console.warn(fl);
+		//console.warn(fl.tag);
 		for(var ti=0; ti<fl.tab.length; ti++) {
 			if(tused[fl.tab[ti]]) continue;  tused[fl.tab[ti]] = true;
 			var tab = llist[fl.tab[ti]];
-			//console.log(fl.tab[ti], tab.ltype);
-			//console.log(fl.tag, tab);
+			//console.warn(fl.tab[ti], tab.ltype);
+			//console.warn(fl.tag, tab);
 			for(var ci=0; ci<gls.length; ci++) {
 				var feat = Typr.U._getWPfeature(str, ci);
 				if("isol,init,fina,medi".indexOf(fl.tag)!=-1 && fl.tag!=feat) continue;
@@ -279,20 +279,20 @@ Typr.U._getWPfeature = function(str, ci) {  // get Word Position feature
 	return feat;
 }
 Typr.U._applySubs = function(gls, ci, tab, llist) {
+	//if(ci==0) console.warn("++++ ", tab.ltype);
 	var rlim = gls.length-ci-1;
-	//if(ci==0) console.log("++++ ", tab.ltype);
 	for(var j=0; j<tab.tabs.length; j++)
 	{
 		if(tab.tabs[j]==null) continue;
 		var ltab = tab.tabs[j], ind;
 		if(ltab.coverage) {  ind = Typr._lctf.coverageIndex(ltab.coverage, gls[ci]);  if(ind==-1) continue;  }
-		//if(ci==0) console.log(ind, ltab);
+		//if(ci==0) console.warn(ind, ltab);
 		//*
 		if(tab.ltype==1) {
 			var gl = gls[ci];
 			if(ltab.fmt==1) gls[ci] = gls[ci]+ltab.delta;
 			else            gls[ci] = ltab.newg[ind];
-			//console.log("applying ... 1", ci, gl, gls[ci]);
+			//console.warn("applying ... 1", ci, gl, gls[ci]);
 		}//*
 		else if(tab.ltype==4) {
 			var vals = ltab.vals[ind];
@@ -304,8 +304,8 @@ Typr.U._applySubs = function(gls, ci, tab, llist) {
 				if(!good) continue;
 				gls[ci]=lig.nglyph;
 				for(var l=0; l<rl+em1; l++) gls[ci+l+1]=-1;   break;  // first character changed, other ligatures do not apply anymore
-				//console.log("lig", ci, lig.chain, lig.nglyph);
-				//console.log("applying ...");
+				//console.warn("lig", ci, lig.chain, lig.nglyph);
+				//console.warn("applying ...");
 			}
 		}
 		else  if(tab.ltype==5 && ltab.fmt==2) {
@@ -320,13 +320,13 @@ Typr.U._applySubs = function(gls, ci, tab, llist) {
 					if(cind==-1 && ltab.cDef[cind2+2]!=inp[l]) {  good=false;  break;  }
 				}
 				if(!good) continue;
-				//console.log(ci, gl);
+				//console.warn(ci, gl);
 				var lrs = sc.substLookupRecords;
 				for(var k=0; k<lrs.length; k+=2)
 				{
 					var gi = lrs[k], tabi = lrs[k+1];
 					//Typr.U._applyType1(gls, ci+gi, llist[tabi]);
-					//console.log(tabi, gls[ci+gi], llist[tabi]);
+					//console.warn(tabi, gls[ci+gi], llist[tabi]);
 				}
 			}
 		}
@@ -335,15 +335,15 @@ Typr.U._applySubs = function(gls, ci, tab, llist) {
 			if(!Typr.U._glsCovered(gls, ltab.backCvg, ci-ltab.backCvg.length)) continue;
 			if(!Typr.U._glsCovered(gls, ltab.inptCvg, ci)) continue;
 			if(!Typr.U._glsCovered(gls, ltab.ahedCvg, ci+ltab.inptCvg.length)) continue;
-			//console.log(ci, ltab);
-			var lr = ltab.lookupRec;  //console.log(ci, gl, lr);
+			//console.warn(ci, ltab);
+			var lr = ltab.lookupRec;  //console.warn(ci, gl, lr);
 			for(var i=0; i<lr.length; i+=2) {
 				var cind = lr[i], tab2 = llist[lr[i+1]];
-				//console.log("-", lr[i+1], tab2);
+				//console.warn("-", lr[i+1], tab2);
 				Typr.U._applySubs(gls, ci+cind, tab2, llist);
 			}
 		}
-		//else console.log("Unknown table", tab.ltype, ltab.fmt);
+		//else console.warn("Unknown table", tab.ltype, ltab.fmt);
 		//*/
 	}
 }
@@ -461,7 +461,7 @@ Typr.U._drawCFF = function(cmds, state, font, pdct, p)
 	var x=state.x, y=state.y, c1x=0, c1y=0, c2x=0, c2y=0, c3x=0, c3y=0, c4x=0, c4y=0, jpx=0, jpy=0;
 	
 	var o = {val:0,size:0};
-	//console.log(cmds);
+	//console.warn(cmds);
 	while(i<cmds.length)
 	{
 		Typr.CFF.getCharString(cmds, i, o);
@@ -646,8 +646,8 @@ Typr.U._drawCFF = function(cmds, state, font, pdct, p)
 				var bind = Typr.CFF.glyphBySE(font, bchar);
 				var aind = Typr.CFF.glyphBySE(font, achar);
 				
-				//console.log(bchar, bind);
-				//console.log(achar, aind);
+				//console.warn(bchar, bind);
+				//console.warn(achar, aind);
 				//state.x=x; state.y=y; state.nStems=nStems; state.haveWidth=haveWidth; state.width=width;  state.open=open;
 				
 				Typr.U._drawCFF(font.CharStrings[bind], state,font,pdct,p);
@@ -752,7 +752,7 @@ Typr.U._drawCFF = function(cmds, state, font, pdct, p)
 		else if(v=="o10" || v=="o29")	// callsubr || callgsubr
 		{
 			var obj = (v=="o10" ? pdct : font);
-			if(stack.length==0) { console.log("error: empty stack");  }
+			if(stack.length==0) { console.warn("error: empty stack");  }
 			else {
 				var ind = stack.pop();
 				var subr = obj.Subrs[ ind + obj.Bias ];
@@ -799,9 +799,9 @@ Typr.U._drawCFF = function(cmds, state, font, pdct, p)
 			}
 		}
 		
-		else if((v+"").charAt(0)=="o") {   console.log("Unknown operation: "+v, cmds); throw v;  }
+		else if((v+"").charAt(0)=="o") {   console.warn("Unknown operation: "+v, cmds); throw v;  }
 		else stack.push(v);
 	}
-	//console.log(cmds);
+	//console.warn(cmds);
 	state.x=x; state.y=y; state.nStems=nStems; state.haveWidth=haveWidth; state.width=width; state.open=open;
 }

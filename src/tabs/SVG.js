@@ -61,12 +61,12 @@ Typr.SVG._toPath = function(nds, pth, fill) {
 		if(tn=="g") Typr.SVG._toPath(nd.children, pth, cfl);
 		else if(tn=="path") {
 			pth.cmds.push(cfl?cfl:"#000000");
-			var d = nd.getAttribute("d");  //console.log(d);
-			var toks = Typr.SVG._tokens(d);  //console.log(toks);
+			var d = nd.getAttribute("d");  //console.warn(d);
+			var toks = Typr.SVG._tokens(d);  //console.warn(toks);
 			Typr.SVG._toksToPath(toks, pth);  pth.cmds.push("X");
 		}
 		else if(tn=="defs") {}
-		else console.log(tn, nd);
+		else console.warn(tn, nd);
 	}
 }
 
@@ -121,7 +121,7 @@ Typr.SVG._toksToPath = function(ts, pth) {
 					var x2=xi+ts[i++], y2=yi+ts[i++], x3=xi+ts[i++], y3=yi+ts[i++];  
 					cmds.push("C");  crds.push(x1,y1,x2,y2,x3,y3);  x=x3;  y=y3;
 				}
-				else console.log("Unknown SVG command "+cmd);
+				else console.warn("Unknown SVG command "+cmd);
 			}
 		}
 	}

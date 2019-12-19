@@ -10,7 +10,7 @@ Typr.GPOS.subt = function(data, ltype, offset)	// lookup type
 	
 	tab.fmt  = bin.readUshort(data, offset);  offset+=2;
 	
-	//console.log(ltype, tab.fmt);
+	//console.warn(ltype, tab.fmt);
 	
 	if(ltype==1 || ltype==2 || ltype==3 || ltype==7 || (ltype==8 && tab.fmt<=2)) {
 		var covOff  = bin.readUshort(data, offset);  offset+=2;

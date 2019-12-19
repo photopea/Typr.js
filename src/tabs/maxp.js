@@ -3,7 +3,7 @@
 Typr.maxp = {};
 Typr.maxp.parse = function(data, offset, length)
 {
-	//console.log(data.length, offset, length);
+	//console.warn(data.length, offset, length);
 	
 	var bin = Typr._bin;
 	var obj = {};
