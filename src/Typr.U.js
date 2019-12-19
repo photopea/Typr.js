@@ -189,8 +189,10 @@ Typr.U.getPairAdjustment = function(font, g1, g2)
 							var c2 = Typr.U._getGlyphClass(g2, ltab.classDef2);
 							adj = ltab.matrix[c1][c2];
 						}
-						//if(adj) console.log(ltab, adj);
-						if(adj && adj.val2) return adj.val2[2];
+						var offset = 0;
+						if (adj && adj.val1 && adj.val1[2]) offset += adj.val1[2];  // xAdvance adjustment of first glyph
+						if (adj && adj.val2 && adj.val2[0]) offset += adj.val2[0];	// xPlacement adjustment of second glyph
+						return offset;
 					}
 				}
 			}
