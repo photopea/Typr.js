@@ -255,7 +255,7 @@ utils._getWPfeature = function (str, ci) {  // get Word Position feature
 	return feat;
 }
 utils._applySubs = function (gls, ci, tab, llist) {
-	const rlim = Math.min(3, gls.length - ci - 1);
+	const rlim = gls.length - ci - 1;
 	const tabTabsLength = tab.tabs.length;
 	for (let j = 0; j < tabTabsLength; j++) {
 		if (tab.tabs[j] == null) continue;
