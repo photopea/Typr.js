@@ -152,7 +152,7 @@ Typr.U._getGlyphClass = function(g, cd)
 
 Typr.U.getPairAdjustment = function(font, g1, g2)
 {
-	//return 0;
+	var offset = 0;
 	if(font.GPOS) {
 		var gpos = font["GPOS"];
 		var llist = gpos.lookupList, flist = gpos.featureList;
@@ -189,10 +189,8 @@ Typr.U.getPairAdjustment = function(font, g1, g2)
 							var c2 = Typr.U._getGlyphClass(g2, ltab.classDef2);
 							adj = ltab.matrix[c1][c2];
 						}
-						var offset = 0;
 						if (adj && adj.val1 && adj.val1[2]) offset += adj.val1[2];  // xAdvance adjustment of first glyph
 						if (adj && adj.val2 && adj.val2[0]) offset += adj.val2[0];	// xPlacement adjustment of second glyph
-						return offset;
 					}
 				}
 			}
@@ -204,11 +202,11 @@ Typr.U.getPairAdjustment = function(font, g1, g2)
 		if(ind1!=-1)
 		{
 			var ind2 = font.kern.rval[ind1].glyph2.indexOf(g2);
-			if(ind2!=-1) return font.kern.rval[ind1].vals[ind2];
+			if(ind2!=-1) offset += font.kern.rval[ind1].vals[ind2];
 		}
 	}
 	
-	return 0;
+	return offset;
 }
 
 Typr.U.stringToGlyphs = function(font, str)
