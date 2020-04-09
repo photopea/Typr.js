@@ -162,7 +162,7 @@
 			var path = Typr.U.glyphToPath(font, gid);
 				
 			cnv.width = cnv.width;
-			ctx.translate(50,320);  
+			ctx.translate(50*getDPR(),320*getDPR());  
 				
 			ctx.fillStyle = "#ff0000";
 			ctx.fillRect(0,0,cnv.width,1);
