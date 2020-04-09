@@ -205,7 +205,7 @@
 			//var spath = document.getElementById("svgp");  spath.setAttribute("d", Typr.U.pathToSVG(path));
 				
 			cnv.width = cnv.width;
-			ctx.translate(4,100);  
+			ctx.translate(4*getDPR(),100*getDPR());  
 				
 			ctx.fillStyle = "#ff0000";
 			ctx.fillRect(0,0,cnv.width,1);
