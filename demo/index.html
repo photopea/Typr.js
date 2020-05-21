@@ -199,15 +199,15 @@
 			
 			var scale = 80*getDPR() / font.head.unitsPerEm;
 			
-			var gls = Typr.U.stringToGlyphs(font, document.getElementById("word").value);
-			var path = Typr.U.glyphsToPath(font, gls, "#333333");
+			var shape = Typr.U.shape(font, document.getElementById("word").value);
+			var path = Typr.U.shapeToPath(font, shape);
 			
 			//var spath = document.getElementById("svgp");  spath.setAttribute("d", Typr.U.pathToSVG(path));
 				
 			cnv.width = cnv.width;
 			ctx.translate(4*getDPR(),100*getDPR());  
 				
-			ctx.fillStyle = "#ff0000";
+			ctx.fillStyle = "#000000";
 			ctx.fillRect(0,0,cnv.width,1);
 			ctx.fillRect(0,-Math.round(font.hhea.ascender *scale),cnv.width,1);
 			ctx.fillRect(0,-Math.round(font.hhea.descender*scale),cnv.width,1);
@@ -215,6 +215,7 @@
 			ctx.scale(scale,-scale);
 			
 			Typr.U.pathToContext(path, ctx);  // setting color and calling fill() already in path
+			ctx.fill();
 		}
 		
 		function drawOutline(path, ctx)
