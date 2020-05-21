@@ -37,7 +37,7 @@ Typr["U"] = {
 		return shape;
 	},
 	
-	"shapeToPath" : function(font,shape) {
+	"shapeToPath" : function(font,shape,clr) {
 		var tpath = {cmds:[], crds:[]};
 		var x = 0, y = 0;
 		
@@ -48,9 +48,10 @@ Typr["U"] = {
 				tpath.crds.push(crds[j  ] + x);
 				tpath.crds.push(crds[j+1] + y);
 			}
+			if(clr) tpath.cmds.push(clr);
 			for(var j=0; j<path["cmds"].length; j++) tpath.cmds.push(path["cmds"][j]);
 			var clen = tpath.cmds.length;
-			if(clen!=0 && tpath.cmds[clen-1]!="X") tpath.cmds.push("X");  // SVG fonts might contain "X". Then, nothing would stroke non-SVG glyphs.
+			if(clr) if(clen!=0 && tpath.cmds[clen-1]!="X") tpath.cmds.push("X");  // SVG fonts might contain "X". Then, nothing would stroke non-SVG glyphs.
 			
 			x += it["ax"];  y+= it["ay"];
 		}
