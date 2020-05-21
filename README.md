@@ -40,7 +40,7 @@ console.log(font);
 
 * `font`: font object
 * `str`: standard JS string
-* returns a shape: a geometric description of a string. The output is an array of elements. Each element has these parameters `g`: Glyph index, `str`: Cluster index , `ax, ay`: Advancement of a glyph, `dx, dy`: an offset from a pen, at which the glyph should be drawn.
+* returns a shape: a geometric description of a string. The output is an array of elements. Each element has these parameters `g`: Glyph index, `cl`: Cluster index , `ax, ay`: Advancement of a glyph, `dx, dy`: an offset from a pen, at which the glyph should be drawn.
 
 The shape can have a different length, than the input string (because of ligatures, etc). The cluster index says, which part of string the glyph represents.
 
