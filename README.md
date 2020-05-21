@@ -33,26 +33,27 @@ console.log(font);
 #### `Typr.U.codeToGlyph(font, code)`
 
 * `font`: font object
-* `code`: integer code of the character
+* `code`: integer Unicode code of the character
 * returns an integer index of the glyph, corresponding to the unicode character
 
-#### `Typr.U.stringToGlyphs(font, str)`
+#### `Typr.U.shape(font, str)`
 
 * `font`: font object
 * `str`: standard JS string
-* returns an array of glyph indices for the string. Calls codeToGlyph() for each character code and performs mandatory glyph substitution (e.g. in Arabic, the same character may need different glyphs at th beginning, in the middle or at the end of a word). Also adds mandatory ligatures.
+* returns a shape: a geometric description of a string. The output is an array of elements. Each element has these parameters `g`: Glyph index, `str`: Cluster index , `ax, ay`: Advancement of a glyph, `dx, dy`: an offset from a pen, at which the glyph should be drawn.
 
-#### `Typr.U.getPairAdjustment(font, gid1, gid2)`
-
-* `font`: font object
-* `gid1`: index of the first glyph
-* `gid2`: index of the second glyph
-* returns the the adjustment parameters of the pair of glyphs
+The shape can have a different length, than the input string (because of ligatures, etc). The cluster index says, which part of string the glyph represents.
 
 #### `Typr.U.glyphToPath(font, gid)`
 
 * `font`: font object
 * `gid`: index of the glyph, which you want to access
+* returns the vector path of the outline of the glyph
+
+#### `Typr.U.shapeToPath(font, shape)`
+
+* `font`: font object
+* `shape`: e.g. the output of Typr.U.shape(...) 
 * returns the vector path of the outline of the glyph
 
 Typr.js uses the following structure to represent the path:
@@ -72,14 +73,6 @@ Typr.js uses the following structure to represent the path:
 A "raindrop" shape: `{ cmds:["M","L","Q","Z"], crds:[0,0,20,80,0,120,-20,80] }` (2 + 2 + 4 + 0 coordinates). 
 
 The format is similar to SVG, but commands and coordinates are separated. It is comfortable to work with coordinates as a set of 2D points, apply affine transformations etc.
-
-#### `Typr.U.glyphsToPath(font, gls)`
-
-* `font`: font object
-* `gls`: the array of glyphs, wich you want to draw using a font
-* returns the vector path of the outline of the input glyph array
-
-Note, that all paths returned by `Typr.U` are in font units ( font.head.unitsPerEm ). You must scale them down to convert them to pixels.
 
 #### `Typr.U.pathToContext(path, ctx)`
 
@@ -112,12 +105,4 @@ Typr.U.stringToContext = function(font, str, ctx, size, color, x, y)
   ctx.scale(1/scale,-1/scale);  ctx.translate(-x,-y);
 }
 ```
-
-## Right-to-left text direction
-
-There is a "view direction" (left to right) of glyphs, in which they are usually rendered. It may be different than the logical direction of characters in the memory (in which they are written). 
-
-`Typr.U.stringToGlyphs` expects characters to be in the logical direction, while `Typr.U.glyphsToPath` method expects glyphs to be in the "view direction" (left to right).
-
-If your text contains e.g. only Arabic / Hebrew parts, just reverse the array of glyphs before calling `Typr.U.glyphsToPath`. When your text contains both RTL and LTR parts, reorder glyphs according to the Unicode BIDI algorithm (e.g. using [unicode-bidirectional](https://github.com/bbc/unicode-bidirectional)).
 
