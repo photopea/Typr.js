@@ -107,7 +107,7 @@ Typr.U.stringToContext = function(font, str, ctx, size, color, x, y)
 ```
 ## Shaping with HarfBuzz
 
-Typr.U.shape() provides only basic text shaping. For advanced shaping, Typr.js can be integrated with a [HarfBuzz shaping library](http://www.harfbuzz.org/). HarfBuzz supports advanced shaping of Arabic, Urdu, Farsi, Khmer, You need a WASM version of the library (can be found [here](https://www.photopea.com/code/external/hb.wasm), 177 kB). The integration is done through two functions.
+Typr.U.shape() provides only basic text shaping. For advanced shaping, Typr.js can be integrated with a [HarfBuzz shaping library](http://www.harfbuzz.org/). HarfBuzz supports advanced shaping of Arabic, Urdu, Farsi, Khmer, You need a WASM version of the library (can be found [here](https://www.photopea.com/code/external/hb.wasm), 177 kB). The integration is done through a following function.
 
 #### `Typr.U.initHB(url, clb)`
 
