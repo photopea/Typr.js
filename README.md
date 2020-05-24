@@ -80,7 +80,7 @@ The format is similar to SVG, but commands and coordinates are separated. It is 
 * `path`: path to draw
 * `ctx`: context2d to draw the path into
 
-It executes each command of the path with a corresponding command of context2D: moveTo(), lineTo(), ... It does nothing else (you must do translate(), scale(), fillStyle, fill(), stroke() ... manually).
+It executes each command of the path with a corresponding command of context2D: moveTo(), lineTo(), ... and fill(). It does nothing else (you must call translate(), scale(), fillStyle ... manually).
 
 #### `Typr.U.pathToSVG(path)`
 
@@ -100,7 +100,6 @@ Typr.U.stringToContext = function(font, str, ctx, size, color, x, y)
   
   ctx.fillStyle = color;
   Typr.U.pathToContext(path, ctx);
-  ctx.fill();
   
   ctx.scale(1/scale,-1/scale);  ctx.translate(-x,-y);
 }
