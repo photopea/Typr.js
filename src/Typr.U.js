@@ -941,6 +941,100 @@ Typr["U"] = {
 			}
 		};
 		return {  "cssMap":cssMap, "readTrnf":readTrnf, svgToPath:svgToPath, toPath:toPath };
-	}()
+	}(),
+	
+	
+
+
+	"initHB": function(hurl,resp) {
+	var codeLength = function(code) {
+		var len=0;
+		if     ((code&(0xffffffff-(1<< 7)+1))==0) {  len=1;  }
+		else if((code&(0xffffffff-(1<<11)+1))==0) {  len=2;  }
+		else if((code&(0xffffffff-(1<<16)+1))==0) {  len=3;  }
+		else if((code&(0xffffffff-(1<<21)+1))==0) {  len=4;  }
+		return len;
+	}
+	var te = new window["TextEncoder"]("utf8");
+	
+	fetch(hurl)
+		.then(function (x  ) { return x["arrayBuffer"](); })
+		.then(function (ab ) { return WebAssembly["instantiate"](ab); })
+		.then(function (res) {
+			console.log("HB ready");
+			var exp = res["instance"]["exports"], mem=exp["memory"];
+			mem["grow"](700); // each page is 64kb in size
+			var heapu8  = new Uint8Array (mem.buffer);
+			var u32 = new Uint32Array(mem.buffer);
+			var i32 = new Int32Array (mem.buffer);
+			var __lastFnt, blob,blobPtr,face,font;
+			
+			Typr["U"]["shapeHB"] = (function () {
+				
+				var toJson = function (ptr) {
+					var length = exp["hb_buffer_get_length"](ptr);
+					var result = [];
+					var iPtr32 = exp["hb_buffer_get_glyph_infos"](ptr, 0) >>>2;
+					var pPtr32 = exp["hb_buffer_get_glyph_positions"](ptr, 0) >>>2;
+					for(var i=0; i<length; ++i) {
+						var a=iPtr32+i*5, b=pPtr32+i*5;
+					  result.push({
+						"g" : u32[a + 0],
+						"cl": u32[a + 2],
+						"ax": i32[b + 0],
+						"ay": i32[b + 1],
+						"dx": i32[b + 2],
+						"dy": i32[b + 3]
+					  });
+					}
+					return result;
+				}
+				return function (fnt, str, ltr) {
+					var fdata = fnt["_data"], fn = fnt["name"]["postScriptName"];
+					
+					if(__lastFnt!=fn) {
+						if(blob!=null) {  
+							exp["hb_blob_destroy"](blob);
+							exp["free"](blobPtr);
+							exp["hb_face_destroy"](face);
+							exp["hb_font_destroy"](font);
+						}
+						blobPtr = exp["malloc"](fdata.byteLength);  heapu8.set(fdata, blobPtr);
+						blob = exp["hb_blob_create"](blobPtr, fdata.byteLength, 2, 0, 0);
+						face = exp["hb_face_create"](blob, 0);
+						font = exp["hb_font_create"](face)
+						__lastFnt = fn;
+					}
+					
+					var buffer = exp["hb_buffer_create"]();
+					var bytes = te["encode"](str);
+					var len=bytes.length, strp = exp["malloc"](len);  heapu8.set(bytes, strp);
+					exp["hb_buffer_add_utf8"](buffer, strp, len, 0, len);
+					exp["free"](strp);
+					
+					exp["hb_buffer_set_direction"](buffer,ltr?4:5);
+					exp["hb_buffer_guess_segment_properties"](buffer);
+					exp["hb_shape"](font, buffer, 0, 0);
+					var json = toJson(buffer)//buffer["json"]();
+					exp["hb_buffer_destroy"](buffer);
+					
+					var arr = json.slice(0);  if(!ltr) arr.reverse();
+					var ci=0, bi=0;  // character index, binary index
+					for(var i=1; i<arr.length; i++) {
+						var gl = arr[i], cl=gl["cl"];
+						while(true) {
+							var cpt = str.codePointAt(ci), cln = codeLength(cpt);
+							if(bi+cln <=cl) {  bi+=cln;  ci += cpt<=0xffff ? 1 : 2;  }
+							else break;
+						}
+						//while(bi+codeLength(str.charCodeAt(ci)) <=cl) {  bi+=codeLength(str.charCodeAt(ci));  ci++;  }
+						gl["cl"]=ci;
+					}
+					return json;
+				}
+			}());
+			resp();
+		});	
+	}
 }
 
