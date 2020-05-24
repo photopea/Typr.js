@@ -45,8 +45,8 @@ Typr["U"] = {
 			var it = shape[i]
 			var path = Typr["U"]["glyphToPath"](font, it["g"]), crds=path["crds"];
 			for(var j=0; j<crds.length; j+=2) {
-				tpath.crds.push(crds[j  ] + x);
-				tpath.crds.push(crds[j+1] + y);
+				tpath.crds.push(crds[j  ] + x + it["dx"]);
+				tpath.crds.push(crds[j+1] + y + it["dy"]);
 			}
 			if(clr) tpath.cmds.push(clr);
 			for(var j=0; j<path["cmds"].length; j++) tpath.cmds.push(path["cmds"][j]);
