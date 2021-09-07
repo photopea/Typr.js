@@ -337,6 +337,220 @@ Untypr["T"].cmap = {
     },
 }
 
+Untypr["T"].loca = {
+    encodeTab: function(obj, font) {
+        var bin = Typr["B"];
+        var version = font["head"]["indexToLocFormat"];
+        if (version == 0) for (var short of obj) bin.writeUint16(short >> 1);
+        if (version == 1) for (var long of obj) bin.writeUint(long);
+    }
+}
+
+Untypr["T"].kern = {
+    encodeTab: function(obj) {
+        var bin = Typr["B"];
+        var nPairs = obj.rval.reduceRight((n, o) => n + o.vals.length, 0);
+        bin.writeUint16(0); // version
+        // FIXME Typr combines all subtables into one map, so we just write one subtable
+        bin.writeUint16(obj.glyph1.length > 0 ? 1 : 0);
+
+        bin.writeUint16(0); // subtable version
+        bin.writeUint16(0); // TODO length
+        // FIXME Typr doesn't store coverage data for kerning subtables
+        bin.writeUint16(0x0000); // TODO coverage
+        bin.writeUint16(nPairs);
+        var searchRange = 1;
+        var entrySelector = 0;
+        while (searchRange < nPairs)
+        {
+            searchRange <<= 1;
+            entrySelector += 1;
+        }
+        searchRange >>= 1; entrySelector -= 1;
+        var rangeShift = nPairs - searchRange;
+        bin.writeUint16(searchRange * 6);
+        bin.writeUint16(entrySelector);
+        bin.writeUint16(rangeShift * 6);
+        for (var i = 0; i < obj.glyph1.length; i++) {
+            var g1 = obj.glyph1[i];
+            var rval = obj.rval[i];
+            for (var j = 0; j < rval.glyph2.length; j++) {
+                bin.writeUint16(g1);
+                bin.writeUint16(rval.glyph2[j]);
+                bin.writeShort(rval.vals[j]);
+            }
+        }
+    }
+}
+
+Untypr["T"].glyf = {
+    encodeTab: function(obj) {
+        var bin = Untypr["B"];
+        for (var glyph of obj) {
+            bin.writeShort(glyph.noc);
+            bin.writeShort(glyph.xMin);
+            bin.writeShort(glyph.yMin);
+            bin.writeShort(glyph.xMax);
+            bin.writeShort(glyph.yMax);
+            if (glyph.noc >= 0) this.encodeSimpleGlyph(glyph);
+            else this.encodeCompositeGlyph(glyph);
+        }
+    },
+    encodeSimpleGlyph: function(glyph) {
+        var bin = Untypr["B"];
+        for (var endPt of glyph.endPts) {
+            bin.writeUint16(endPt);
+        }
+        bin.writeUint16(glyph.instructions.length);
+        for (var inst of glyph.instructions) {
+            bin.writeUint8(inst);
+        }
+        for (var flag of glyph.flags) {
+            // the flags are deduplicated, so we must unset the REPEAT bit
+            bin.writeUint8(flag & 0b11110111);
+        }
+        var i; var lastI = 0; var isShort, isSame;
+        for (i = 0; i < glyph.xs.length; i++) {
+            isShort = glyph.flags[i] & 0x02;
+            isSame = glyph.flags[i] & 0x10;
+            if (isShort) {
+                bin.writeUint8(isSame ? glyph.xs[i] : -glyph.xs[i]);
+            } else {
+                if (!isSame) lastI = i;
+                bin.writeShort(glyph.xs[lastI]);
+            }
+        }
+
+        lastI = 0;
+        for (i = 0; i < glyph.ys.length; i++) {
+            isShort = glyph.flags[i] & 0x04;
+            isSame = glyph.flags[i] & 0x20;
+            if (isShort) {
+                bin.writeUint8(isSame ? glyph.ys[i] : -glyph.ys[i]);
+            } else {
+                if (!isSame) lastI = i;
+                bin.writeShort(glyph.ys[lastI]);
+            }
+        }
+    },
+    encodeCompositeGlyph: function(glyph) {
+        var bin = Untypr["B"];
+        var ARG_1_AND_2_ARE_WORDS	= 1<<0;
+        var ARGS_ARE_XY_VALUES		= 1<<1;
+        var ROUND_XY_TO_GRID		= 1<<2;
+        var WE_HAVE_A_SCALE			= 1<<3;
+        var RESERVED				= 1<<4;
+        var MORE_COMPONENTS			= 1<<5;
+        var WE_HAVE_AN_X_AND_Y_SCALE= 1<<6;
+        var WE_HAVE_A_TWO_BY_TWO	= 1<<7;
+        var WE_HAVE_INSTRUCTIONS	= 1<<8;
+
+        for (var i = 0; i < glyph.parts.length; i++) {
+            var part = glyph.parts[i];
+            // determine flags and arguments
+            var flags = 0;
+            var arg1, arg2;
+            if (part.p1 == -1 && part.p2 == -1) {
+                arg1 = part.m.tx; arg2 = part.m.ty;
+                flags |= ARGS_ARE_XY_VALUES;
+                if (arg1 >= 128 || arg1 < -128 || arg2 >= 128 || arg2 < -128)
+                    flags |= ARG_1_AND_2_ARE_WORDS;
+            } else {
+                arg1 = part.p1; arg2 = part.p2;
+                if (arg1 > 256 || arg2 > 256)
+                    flags |= ARG_1_AND_2_ARE_WORDS;
+            }
+
+            if (part.m.a == 1 && part.m.b == 0 && part.m.c == 0 && part.m.d == 1)
+                flags |= 0;
+            else if (part.m.a == part.m.d && part.m.b == 0 && part.m.c == 0)
+                flags |= WE_HAVE_A_SCALE;
+            else if (part.m.b == 0 && part.m.c == 0)
+                flags |= WE_HAVE_AN_X_AND_Y_SCALE;
+            else
+                flags |= WE_HAVE_A_TWO_BY_TWO;
+
+            if (i == glyph.parts.length - 1) {
+                if (glyph.instr.length > 0)
+                    flags |= WE_HAVE_INSTRUCTIONS;
+            } else {
+                flags |= MORE_COMPONENTS;
+            }
+
+            // write glyph component
+            bin.writeUint16(flags);
+            bin.writeUint16(part.glyphIndex);
+            if (flags & ARG_1_AND_2_ARE_WORDS) {
+                bin.writeUint16(arg1);
+                bin.writeUint16(arg2);
+            } else {
+                bin.writeUint16((arg1 << 8) | arg2);
+            }
+
+            if (flags & WE_HAVE_A_SCALE) {
+                bin.writeF2dot14(part.m.a);
+            } else if (flags & WE_HAVE_AN_X_AND_Y_SCALE) {
+                bin.writeF2dot14(part.m.a);
+                bin.writeF2dot14(part.m.d);
+            } else if (flags & WE_HAVE_A_TWO_BY_TWO) {
+                bin.writeF2dot14(part.m.a);
+                bin.writeF2dot14(part.m.b);
+                bin.writeF2dot14(part.m.c);
+                bin.writeF2dot14(part.m.d);
+            }
+        }
+
+        if (glyph.instr.length > 0) {
+            bin.writeUint16(glyph.instr.length);
+            for (var instr of glyph.instr) {
+                bin.writeUint8(instr);
+            }
+        }
+    }
+}
+
+Untypr["T"].SVG = {
+    encodeTab: function(obj) {
+        var bin = Untypr["B"];
+        bin.writeUint16(0); // version
+        bin.writeUint(10); // svgDocumentListOffset
+        bin.writeUint(0); // reserved
+
+        // convert entries array into ranges
+        var ranges = [];
+        var svgs = [];
+        var currStart = -1;
+        var currSvg;
+        for (var i = 0; i < obj.entries.length; i++) {
+            if (typeof currSvg == "undefined" && typeof obj.entries[i] == "undefined") {
+                continue;
+            }
+            if (typeof currSvg == "undefined") {
+                currStart = i;
+                currSvg = obj.entries[i];
+            }
+            if (obj.entries[i] != currSvg) {
+                ranges.push([currStart, i-1]);
+                svgs.push(currSvg);
+                currSvg = obj.entries[i];
+                currStart = i;
+            }
+        }
+
+        bin.writeUint16(ranges.length); // numEntries
+        for (var range of ranges) {
+            bin.writeUint16(range[0]); // startGlyphID
+            bin.writeUint16(range[1]); // endGlyphID
+            bin.writeUint(0); // TODO svgDocOffset
+            bin.writeUint(0); // TODO svgDocLength
+        }
+
+        for (var svg of svgs) {
+            bin.writeUnicode(svg);
+        }
+    }
+}
+
 Untypr["B"] = {
     writeUint: function(n)
     {
