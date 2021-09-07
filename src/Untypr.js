@@ -94,6 +94,7 @@ Untypr["T"].maxp = {
 };
 
 Untypr["T"].name = {
+    // FIXME: wrong obj format used
     encodeTab: function(obj)
     {
         var bin = Untypr["B"];
@@ -240,20 +241,100 @@ Untypr["T"].OS2 = {
 }
 
 Untypr["T"].post = {
-    encodeTab: function(obj, offset, buff) {
+    encodeTab: function(obj) {
         var bin = Untypr["B"];
         // We don't have the PS name information needed for v2, so we're storing as v3 only
-        bin.writeUint(buff, offset, 0x00030000); offset += 4;
-        bin.writeFixed(buff, offset, obj["italicAngle"]); offset += 4;
-        bin.writeShort(buff, offset, obj["underlinePosition"]); offset +=2;
-        bin.writeShort(buff, offset, obj["underlineThickness"]); offset += 2;
+        bin.writeUint(0x00030000);
+        bin.writeFixed(obj["italicAngle"]);
+        bin.writeShort(obj["underlinePosition"]);
+        bin.writeShort(obj["underlineThickness"]);
         // FIXME: Typr doesn't load "isFixedPitch"
-        bin.writeUint(buff, offset, 0); offset += 4;
-        bin.writeUint(buff, offset, 0); offset += 4; // minMemType42
-        bin.writeUint(buff, offset, 0); offset += 4; // maxMemType42
-        bin.writeUint(buff, offset, 0); offset += 4; // minMemType1
-        bin.writeUint(buff, offset, 0); // maxMemType1
+        bin.writeUint(0); // isFixedPitch
+        bin.writeUint(0); // minMemType42
+        bin.writeUint(0); // maxMemType42
+        bin.writeUint(0); // minMemType1
+        bin.writeUint(0); // maxMemType1
     }
+}
+
+Untypr["T"].cmap = {
+    encodeTab: function(obj) {
+        var bin = Untypr["B"];
+        bin.writeUint16(0); // version
+        bin.writeUint16(obj.tables.length); // numTables
+
+        for (var key in Object.keys(obj.ids)) {
+            var match = key.match(/^p(?<platformID>[0-9]+)e(?<encodingID>[0-9]+)$/);
+            if (!match) continue;
+            bin.writeUint16(match.platformID);
+            bin.writeUint16(match.encodingID);
+            bin.writeUint(0); // TODO subtableOffset
+        }
+
+        for (var subt of obj.tables) {
+            if (subt.format == 0) this.encode0(subt);
+            else if (subt.format == 4) this.encode4(subt);
+            else if (subt.format == 6) this.encode6(subt);
+            else if (subt.format == 12) this.encode12(subt);
+            // else console.log(`unknown subtable format ${subt.format}`);
+        }
+    },
+
+    encode0: function(table) {
+        var bin = Untypr["B"];
+        bin.writeUint16(0); // format
+        bin.writeUint16(table.map.length + 6); // length
+        bin.writeUint16(0) // language, FIXME: we assume not language-specific on Mac
+        for (var glyphId of table.map) {
+            bin.writeUint8(glyphId);
+        }
+    },
+    encode4: function(table) {
+        var bin = Untypr["B"];
+        bin.writeUint16(4); // format
+        bin.writeUint16(0); // TODO length
+        bin.writeUint16(0); // language, FIXME: we assume not language-specific on Mac
+        bin.writeUint16(table.startCount * 2); // segCountX2
+        bin.writeUint16(table.searchRange);
+        bin.writeUint16(table.entrySelector);
+        bin.writeUint16(table.rangeShift);
+        for (var endCount of table.endCount) {
+            bin.writeUint16(endCount);
+        }
+        bin.writeUint16(0); // reservedPad
+        for (var startCount of table.startCount) {
+            bin.writeUint16(startCount);
+        }
+        for (var idDelta of table.idDelta) {
+            bin.writeUint16(idDelta);
+        }
+        for (var idRangeOffset of table.idRangeOffset) {
+            bin.writeUint16(idRangeOffset);
+        }
+        for (var glyphID of table.glyphIdArray) {
+            bin.writeUint16(glyphID);
+        }
+    },
+    encode6: function(table) {
+        var bin = Untypr["B"];
+        bin.writeUint16(6); // format
+        bin.writeUint16(0); // TODO length
+        bin.writeUint16(0); // FIXME assumes language-independent encoding
+        bin.writeUint16(table.firstCode);
+        bin.writeUint16(table.glyphIdArray.length); // entryCount
+        for (var id of table.glyphIdArray) bin.writeUint16(id);
+    },
+    encode12: function(table) {
+        var bin = Untypr["B"];
+        bin.writeUint16(12); // format
+        bin.writeUint16(0); // reserved
+        bin.writeUint(0); // TODO length
+        bin.writeUint(0); // language
+        bin.writeUint(table.groups.length / 3); // numGroups
+        for (var group of table.groups) {
+            bin.writeUint(group);
+        }
+    },
 }
 
 Untypr["B"] = {
