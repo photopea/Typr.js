@@ -1,5 +1,86 @@
 var Untypr = {};
 
+Untypr["encode"] = function(font) {
+    var encoders = [
+        "head", "cmap", "hhea", "maxp", "hmtx", "name",
+        "OS/2", "post", "loca", "kern", "glyf", "SVG"
+    ];
+    var toEncode = [];
+    var bin = Untypr["B"];
+    bin._out.clear();
+    var numTables = 0;
+    for (var enc of encoders) {
+        if (font.hasOwnProperty(enc)) {
+            numTables++;
+            toEncode.push(enc);
+        }
+    }
+    var searchRange = 1;
+    var entrySelector = 0;
+    while (searchRange < numTables) {
+        searchRange <<= 1;
+        entrySelector += 1;
+    }
+    searchRange <<= 3; // /2 * 16
+    entrySelector -= 1;
+    var rangeShift = (numTables << 4) - searchRange;
+
+    // table directory
+    bin.writeUint(0x00010000); // sfntVersion TODO CFF?
+    bin.writeUint16(numTables);
+    bin.writeUint16(searchRange);
+    bin.writeUint16(entrySelector);
+    bin.writeUint16(rangeShift);
+
+    // table records
+    var tableRecordOffsets = {};
+    for (var tableTag of toEncode) {
+        tableRecordOffsets[tableTag] = bin.getCurrentOffset();
+        bin.writeASCII(tableTag);
+        bin.writeUint(0); // checksum
+        bin.writeUint(0); // offset
+        bin.writeUint(0); // length
+    }
+
+    // tables themselves
+    var tableOffsets = {}
+    for (var tableTag of toEncode) {
+        var tableStartOffset = bin.getCurrentOffset();
+        Untypr["T"][tableTag].encodeTab(font[tableTag]);
+        var tableEndOffset = bin.getCurrentOffset();
+        tableOffsets[tableTag] = { start: tableStartOffset, end: tableEndOffset };
+        while (bin.getCurrentOffset() % 4 != 0) {
+            // tables must be aligned to 4 byte boundaries
+            bin.writeUint8(0);
+        }
+    }
+
+    // compute record fields
+    for (var tableTag of toEncode) {
+        var off = tableRecordOffsets[tableTag];
+        var lim = tableOffsets[tableTag];
+        var checksum = Untypr["getChecksum"](lim.start, lim.end);
+        bin.writeUint(checksum, off+4);
+        bin.writeUint(lim.start, off+8);
+        bin.writeUint(lim.end - lim.start, off+12);
+    }
+
+    // compute total font checksum and write adjustment to "head"
+    var totalChksm = Untypr["getChecksum"](0, bin.getCurrentOffset());
+    var chksmAdjust = 0xb1b0afba - totalChksm;
+    bin.writeUint(chksmAdjust, tableOffsets["head"].start + 8);
+
+    return bin._out.arr.buffer;
+}
+
+Untypr["getChecksum"] = function(start, end) {
+    while (end % 4 != 0) end++;
+    var sum = 0n;
+    for (var i = start; i < end; i += 4) {
+        sum += Untypr["B"].readUint(i);
+    }
+    return sum & 0xffffffff;
+}
 
 Untypr["T"] = {};
 
@@ -10,7 +91,6 @@ Untypr["T"].head = {
         bin.writeUint16(1); // majorVersion
         bin.writeUint16(0); // minorVersion
         bin.writeFixed(obj["fontRevision"]);
-        var checkSumOffset = bin.getCurrentOffset(); // TODO
         bin.writeUint(0); // checkSumAdjustment
         bin.writeUint(0x5f0f3cf5); // magic constant
         bin.writeUint(obj["flags"]);
@@ -99,9 +179,10 @@ Untypr["T"].name = {
     {
         var bin = Untypr["B"];
         // Typr doesn't support v1, so store only v0
+        var startOffset = bin.getCurrentOffset();
         bin.writeShort(0);
         bin.writeShort(obj["count"]);
-        bin.writeShort(0); // TODO: add offset
+        bin.writeShort(0); // storageOffset
 
         var names = [
             "copyright",
@@ -139,10 +220,10 @@ Untypr["T"].name = {
             var pID = Number.parseInt(match.platformID, 10);
             var lID = Number.parseInt(match.languageID, 16);
             // FIXME: We just use Unicode or pick Roman and hope
-            var encID;
-            if (pID == 0) encID = 4; // Unicode, full Unicode
-            else if (pID == 1) encID = 0; // Macintosh, Roman
-            else if (pID == 3) encID = 10; // Windows, full Unicode
+            var eID;
+            if (pID == 0) eID = 4; // Unicode, full Unicode
+            else if (pID == 1) eID = 0; // Macintosh, Roman
+            else if (pID == 3) eID = 10; // Windows, full Unicode
 
             for (var name in Object.keys(obj[key])) {
                 var nID = names.indexOf(name);
@@ -163,18 +244,25 @@ Untypr["T"].name = {
             return 0;
         });
 
+        var offsets = [];
         for (var r of records) {
             bin.writeUint16(r.pID);
             bin.writeUint16(r.eID);
             bin.writeUint16(r.lID);
             bin.writeUint16(r.nID);
             bin.writeUint16(obj[r.key][names[r.nID]].length);
-            bin.writeUint16(0); // TODO add offsets;
+            offsets.push(bin.getCurrentOffset());
+            bin.writeUint16(0); // offset;
         }
 
-        for (r of records) {
-            var func = (r.pID == 1 && r.eID == 0) ? bin.writeASCII : bin.writeUnicode;
-            func(obj[r.key][names[r.nID]]);
+        var dataOffset = bin.getCurrentOffset();
+        bin.writeUint16(dataOffset - startOffset, startOffset);
+
+        for (var i = 0; i < records.length; i++) {
+            var rec = records[i];
+            var func = (rec.pID == 1 && rec.eID == 0) ? bin.writeASCII : bin.writeUnicode;
+            bin.writeUint16(bin.getCurrentOffset() - startOffset, offsets[i]);
+            func(obj[rec.key][names[rec.nID]]);
         }
     }
 }
@@ -260,6 +348,7 @@ Untypr["T"].post = {
 Untypr["T"].cmap = {
     encodeTab: function(obj) {
         var bin = Untypr["B"];
+        var startOffset = bin.getCurrentOffset();
         bin.writeUint16(0); // version
         bin.writeUint16(obj.tables.length); // numTables
 
@@ -292,9 +381,11 @@ Untypr["T"].cmap = {
     encode4: function(table) {
         var bin = Untypr["B"];
         bin.writeUint16(4); // format
-        bin.writeUint16(0); // TODO length
+        var segCount = table.startCount.length;
+        var length = (8 + (segCount<<2) + table.glyphIdArray.length) << 1;
+        bin.writeUint16(length);
         bin.writeUint16(0); // language, FIXME: we assume not language-specific on Mac
-        bin.writeUint16(table.startCount * 2); // segCountX2
+        bin.writeUint16(segCount<<1); // segCountX2
         bin.writeUint16(table.searchRange);
         bin.writeUint16(table.entrySelector);
         bin.writeUint16(table.rangeShift);
@@ -318,7 +409,8 @@ Untypr["T"].cmap = {
     encode6: function(table) {
         var bin = Untypr["B"];
         bin.writeUint16(6); // format
-        bin.writeUint16(0); // TODO length
+        var length = (table.glyphIdArray.length + 5)<<1;
+        bin.writeUint16(length);
         bin.writeUint16(0); // FIXME assumes language-independent encoding
         bin.writeUint16(table.firstCode);
         bin.writeUint16(table.glyphIdArray.length); // entryCount
@@ -328,7 +420,8 @@ Untypr["T"].cmap = {
         var bin = Untypr["B"];
         bin.writeUint16(12); // format
         bin.writeUint16(0); // reserved
-        bin.writeUint(0); // TODO length
+        var length = 16 + (table.groups.length<<2);
+        bin.writeUint(length);
         bin.writeUint(0); // language
         bin.writeUint(table.groups.length / 3); // numGroups
         for (var group of table.groups) {
@@ -355,7 +448,8 @@ Untypr["T"].kern = {
         bin.writeUint16(obj.glyph1.length > 0 ? 1 : 0);
 
         bin.writeUint16(0); // subtable version
-        bin.writeUint16(0); // TODO length
+        var length = 6 * nPairs + 14;
+        bin.writeUint16(length);
         // FIXME Typr doesn't store coverage data for kerning subtables
         bin.writeUint16(0x0000); // TODO coverage
         bin.writeUint16(nPairs);
@@ -437,9 +531,7 @@ Untypr["T"].glyf = {
         var bin = Untypr["B"];
         var ARG_1_AND_2_ARE_WORDS	= 1<<0;
         var ARGS_ARE_XY_VALUES		= 1<<1;
-        var ROUND_XY_TO_GRID		= 1<<2;
         var WE_HAVE_A_SCALE			= 1<<3;
-        var RESERVED				= 1<<4;
         var MORE_COMPONENTS			= 1<<5;
         var WE_HAVE_AN_X_AND_Y_SCALE= 1<<6;
         var WE_HAVE_A_TWO_BY_TWO	= 1<<7;
@@ -537,88 +629,94 @@ Untypr["T"].SVG = {
             }
         }
 
+        var documentListOffset = bin.getCurrentOffset();
+        var offsets = [];
         bin.writeUint16(ranges.length); // numEntries
         for (var range of ranges) {
             bin.writeUint16(range[0]); // startGlyphID
             bin.writeUint16(range[1]); // endGlyphID
-            bin.writeUint(0); // TODO svgDocOffset
-            bin.writeUint(0); // TODO svgDocLength
+            offsets.push(bin.getCurrentOffset());
+            bin.writeUint(0); // svgDocOffset
+            bin.writeUint(0); // svgDocLength
         }
 
-        for (var svg of svgs) {
-            bin.writeUnicode(svg);
+        for (var i = 0; i < svgs.length; i++) {
+            var startDocOffset = bin.getCurrentOffset();
+            bin.writeUnicode(svgs[i]);
+            var endDocOffset = bin.getCurrentOffset();
+            bin.writeUint(startDocOffset - documentListOffset, offsets[i]);
+            bin.writeUint(endDocOffset - startDocOffset, offsets[i] + 4);
         }
     }
 }
 
 Untypr["B"] = {
-    writeUint: function(n)
+    readUint : function(p)
     {
-        this._out.push((n>>24)&255);
-        this._out.push((n>>16)&255);
-        this._out.push((n>>8)&255);
-        this._out.push(n&255);
+        //if(p>=buff.length) throw "error";
+        var buff = this._out.arr;
+        var a = Untypr["B"].t.uint8;
+        a[3] = buff[p];  a[2] = buff[p+1];  a[1] = buff[p+2];  a[0] = buff[p+3];
+        return Untypr["B"].t.uint32[0];
     },
-    writeUint16: function(n)
+    writeUint: function(n, p)
     {
-        this._out.push((n>>8)&255);
-        this._out.push(n&255);
+        this._out.write((n>>24)&255, p);
+        this._out.write((n>>16)&255, p+1);
+        this._out.write((n>>8)&255, p+2);
+        this._out.write(n&255, p+3);
     },
-    writeUint8: function(n)
+    writeUint16: function(n, p)
     {
-        this._out.push(n&255);
+        this._out.write((n>>8)&255, p);
+        this._out.write(n&255, p+1);
     },
-    writeUint64: function(buff, p, n)
+    writeUint8: function(n, p)
     {
-        // TODO
+        this._out.write(n&255, p);
     },
-    writeInt: function(buff, p, n)
+    writeUint64: function(n, p)
+    {
+        Untypr["B"].writeUint(BigInt(n) >> BigInt(32), p);
+        Untypr["B"].writeUint(n & 0xffffffff, p+1);
+    },
+    writeInt: function(n, p)
     {
         var a = Untypr["B"].t.uint8;
         Untypr["B"].t.int32[0] = n;
-        this._out.push(a[3]);
-        this._out.push(a[2]);
-        this._out.push(a[1]);
-        this._out.push(a[0]);
+        this._out.write(a[3], p);
+        this._out.write(a[2], p+1);
+        this._out.write(a[1], p+2);
+        this._out.write(a[0], p+3);
     },
-    writeShort: function(buff, p, n)
+    writeShort: function(n, p)
     {
         var a = Untypr["B"].t.uint8;
         Untypr["B"].t.int16[0] = n;
-        this._out.push(a[1]);
-        this._out.push(a[0]);
+        this._out.write(a[1], p);
+        this._out.write(a[0], p+1);
     },
-    writeInt8: function(buff, p, n)
+    writeF2dot14: function(n, p)
     {
-        var a = Untypr["B"].t.uint8;
-        Untypr["B"].t.int8[0] = n;
-        this._out.push(a[0]);
+        Untypr["B"].writeShort(n * 16384, p)
     },
-    writeInt64: function(buff, p, n)
+    writeFixed: function(n, p)
     {
-        // TODO
+        Untypr["B"].writeInt(n * 65536, p);
     },
-    writeF2dot14: function(buff, p, n)
+    writeBytes: function(arr, p)
     {
-        Untypr["B"].writeShort(buff, p, n * 16384)
+        for(var i=0; i<arr.length; i++) this._out.write(arr[i], p+i);
     },
-    writeFixed: function(buff, p, n)
-    {
-        // TODO
-    },
-    writeBytes: function(arr)
-    {
-        for(var i=0; i<arr.length; i++) this._out.push(arr[i]);
-    },
-    writeASCII: function(s)
+    writeASCII: function(s, p)
     {
         for(var i = 0; i < s.length; i++)
-            this._out.push(s.charCodeAt(i));
+            this._out.write(s.charCodeAt(i), p+i);
     },
-    writeUnicode: function(s)
+    writeUnicode: function(s, p)
     {
         var arr = new TextEncoder().encode(s);
-        for (var i = 0; i < arr.length; i++) this._out.push(arr[i]);
+        for (var i = 0; i < arr.length; i++) this._out.write(arr[i], p+i);
     },
     t : function() {
         var ab = new ArrayBuffer(8);
@@ -629,30 +727,32 @@ Untypr["B"] = {
             int16  : new Int16Array (ab),
             uint16 : new Uint16Array(ab),
             int32  : new Int32Array (ab),
-            uint32 : new Uint32Array(ab)
+            uint32 : new Uint32Array(ab),
         }
     }(),
     _out: {
         arr: new Uint8Array(1000),
-        offset: 0,
+        length: 0,
         write: function(byte, offset) {
             var out = Untypr["B"]._out;
-            if (offset > out.offset) out.offset = offset;
-            if (offset >= out.arr.length) {
-                var ab = new ArrayBuffer(arr.length * 2);
+            if (!Number.isFinite(offset)) offset = out.length;
+            if (offset >= out.length) out.length = offset + 1;
+            while (out.length > out.arr.buffer.length) {
+                var ab = new ArrayBuffer(out.arr.buffer.length * 2);
                 var newArr = new Uint8Array(ab);
                 newArr.set(out.arr);
                 out.arr = newArr;
             }
             out.arr[offset] = byte;
         },
-        push: function(byte) { 
+        clear: function() {
             var out = Untypr["B"]._out;
-            out.write(byte, out.offset + 1);
+            out.arr = new Uint8Array(1000);
+            out.length = 0;
         }
     },
     getCurrentOffset: function() {
-        return Untypr["B"]._out.offset;
+        return Untypr["B"]._out.length;
     }
 };
 
