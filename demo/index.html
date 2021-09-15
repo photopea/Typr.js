@@ -54,7 +54,7 @@
 
 	<script type="text/javascript" src="../src/Typr.js"></script>
 	<script type="text/javascript" src="../src/Typr.U.js"></script>
-		
+    <script type="text/javascript" src="../src/Untypr.js"></script>		
 	<script type="text/javascript">
 	
 		var font;
@@ -92,6 +92,15 @@
 		
 		function glyphCnt() {  return font.maxp.numGlyphs;  }
 		
+		function saveFont() {
+			var buffer = Untypr.encode(font);
+			var blob = new Blob([buffer], {type: "application/otf"});
+			var link = document.createElement('a');
+			link.href = window.URL.createObjectURL(blob);
+			link.download = "font.otf";
+			link.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true, view: window}));
+		}
+
 		function fontLoaded(resp)
 		{
 			font = Typr.parse(resp)[0];
@@ -248,6 +257,7 @@
 		
 <div class="main">
 	<button type="button" onclick="drawPrev()">Previous 100</button>  <button type="button" onclick="drawNext()">Next 100</button>
+	<button type="button" onclick="saveFont()">Save Font</button>
 	<b style="float:right">Drag and drop your own font!</b>
 	<div id="glyphcont"></div>
 	
