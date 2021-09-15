@@ -38,7 +38,7 @@ Untypr["encode"] = function(font) {
     var rangeShift = (numTables << 4) - searchRange;
 
     // table directory
-    bin.writeUint(0x00010000); // sfntVersion TODO CFF?
+    bin.writeUint(0x00010000); // sfntVersion
     bin.writeUint16(numTables);
     bin.writeUint16(searchRange);
     bin.writeUint16(entrySelector);
@@ -172,7 +172,7 @@ Untypr["T"].maxp = {
     encodeTab: function(obj)
     {
         var bin = Untypr["B"];
-        // FIXME: Typr doesn't store version information
+        // FIXME: Typr doesn't store version information, assume v0.5
         var ver = obj["version"] ? obj["version"] << 16 : 0x00005000
         bin.writeUint(ver);
         bin.writeUint16(obj["numGlyphs"]);
@@ -346,6 +346,7 @@ Untypr["T"].cmap = {
         bin.writeUint16(0); // version
         bin.writeUint16(obj.tables.length); // numTables
 
+        var headerOffsetFields = {};
         for (var key of Object.keys(obj.ids)) {
             var match = key.match(/^p(?<platformID>[0-9]+)e(?<encodingID>[0-9]+)$/);
             if (!match) continue;
@@ -353,15 +354,23 @@ Untypr["T"].cmap = {
             var eID = Number.parseInt(match.groups.encodingID);
             bin.writeUint16(pID);
             bin.writeUint16(eID);
-            bin.writeUint(0); // TODO subtableOffset
+            headerOffsetFields[key] = bin.getCurrentOffset();
+            bin.writeUint(0); // subtableOffset
         }
 
+        var offsets = [];
         for (var subt of obj.tables) {
+            offsets.push(bin.getCurrentOffset() - startOffset);
             if (subt.format == 0) this.encode0(subt);
             else if (subt.format == 4) this.encode4(subt);
             else if (subt.format == 6) this.encode6(subt);
             else if (subt.format == 12) this.encode12(subt);
             // else console.log(`unknown subtable format ${subt.format}`);
+        }
+
+        // fill in record offsets
+        for (var field of Object.keys(headerOffsetFields)) {
+            bin.writeUint(offsets[obj.ids[field]], headerOffsetFields[field]);
         }
     },
 
@@ -447,7 +456,7 @@ Untypr["T"].kern = {
         var length = 6 * nPairs + 14;
         bin.writeUint16(length);
         // FIXME Typr doesn't store coverage data for kerning subtables
-        bin.writeUint16(0x0000); // TODO coverage
+        bin.writeUint16(0x0000); // coverage
         bin.writeUint16(nPairs);
         var searchRange = 1;
         var entrySelector = 0;
@@ -677,7 +686,6 @@ Untypr["T"].SVG = {
 Untypr["B"] = {
     readUint : function(p)
     {
-        //if(p>=buff.length) throw "error";
         var buff = Untypr["B"]._out.arr;
         var a = Untypr["B"].t.uint8;
         a[3] = buff[p];  a[2] = buff[p+1];  a[1] = buff[p+2];  a[0] = buff[p+3];
