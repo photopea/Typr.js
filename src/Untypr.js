@@ -81,7 +81,7 @@ Untypr["encode"] = function(font) {
 	for (var tableTag in toEncode) {
 		var off = tableRecordOffsets[tableTag];
 		var lim = tableOffsets[tableTag];
-		var checksum = Untypr["getChecksum"](lim.start, lim.end);
+		var checksum = getChecksum(lim.start, lim.end);
 		bin.writeUint(checksum, off+4);
 		bin.writeUint(lim.start, off+8);
 		bin.writeUint(lim.end - lim.start, off+12);
@@ -457,7 +457,7 @@ Untypr["T"].kern = {
 		var length = 6 * nPairs + 14;
 		bin.writeUshort(length);
 		// FIXME Typr doesn't store coverage data for kerning subtables
-		bin.writeUshort(0x0000); // coverage
+		bin.writeUshort(0x0001); // coverage
 		bin.writeUshort(nPairs);
 		var searchRange = 1;
 		var entrySelector = 0;
@@ -504,6 +504,7 @@ Untypr["T"].glyf = {
 			else Untypr["T"].glyf.encodeCompositeGlyph(glyph);
 		}
 
+		offsets.push(bin.getCurrentOffset() - glyfStartOffset);
 		metadata.glyfOffsets = offsets;
 	},
 	encodeSimpleGlyph: function(glyph) {
