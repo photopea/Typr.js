@@ -27,8 +27,13 @@ Typr["parse"] = function(buff)
 			"GPOS",
 			"GSUB",
 			"GDEF",*/
+			"CBLC":T.CBLC,
+			"CBDT":T.CBDT,
 			
-			"SVG ":T.SVG
+			"SVG ":T.SVG,
+			"COLR":T.colr,
+			"CPAL":T.cpal,
+			"sbix":T.sbix
 			//"VORG",
 		};
 		var obj = {"_data":data, "_index":idx, "_offset":offset};
@@ -73,7 +78,7 @@ Typr["findTable"] = function(data, tab, foff)
 	var offset = foff+12;
 	for(var i=0; i<numTables; i++)
 	{
-		var tag      = bin.readASCII(data, offset, 4); 
+		var tag      = bin.readASCII(data, offset, 4);   //console.log(tag);
 		var checkSum = bin.readUint (data, offset+ 4);
 		var toffset  = bin.readUint (data, offset+ 8); 
 		var length   = bin.readUint (data, offset+12);
@@ -211,8 +216,8 @@ Typr["B"] = {
 	readShort : function(buff, p)
 	{
 		//if(p>=buff.length) throw "error";
-		var a = Typr["B"].t.uint8;
-		a[1] = buff[p]; a[0] = buff[p+1];
+		var a = Typr["B"].t.uint16;
+		a[0] = (buff[p]<<8) | buff[p+1];
 		return Typr["B"].t.int16[0];
 	},
 	readUshort : function(buff, p)
@@ -727,7 +732,7 @@ Typr["T"].cmap = {
 				obj.tables.push(subt);
 			}
 			
-			if(obj.ids[id]!=null) throw "multiple tables for one platform+encoding";
+			if(obj.ids[id]!=null) console.log("multiple tables for one platform+encoding: "+id);
 			obj.ids[id] = tind;
 		}
 		return obj;
@@ -798,6 +803,71 @@ Typr["T"].cmap = {
 			gps[i+2] = rU(data, offset+(i<<2)+8);
 		}
 		return obj;
+	}
+};
+
+Typr["T"].CBLC = {
+	parseTab : function(data, offset, length)
+	{
+		var bin = Typr["B"], ooff=offset;
+		
+		var maj = bin.readUshort(data,offset);  offset+=2;
+		var min = bin.readUshort(data,offset);  offset+=2;
+		
+		var numSizes = bin.readUint  (data,offset);  offset+=4;
+		
+		var out = [];
+		for(var i=0; i<numSizes; i++) {
+			var off = bin.readUint  (data,offset);  offset+=4;  // indexSubTableArrayOffset
+			var siz = bin.readUint  (data,offset);  offset+=4;  // indexTablesSize
+			var num = bin.readUint  (data,offset);  offset+=4;  // numberOfIndexSubTables
+			offset+=4;
+			
+			offset+=2*12;
+			
+			var sGlyph = bin.readUshort(data,offset);  offset+=2;
+			var eGlyph = bin.readUshort(data,offset);  offset+=2;
+			
+			//console.log(off,siz,num, sGlyph, eGlyph);
+			
+			offset+=4;
+			
+			var coff = ooff+off;
+			for(var j=0; j<3; j++) {				
+				var fgI = bin.readUshort(data,coff);  coff+=2;
+				var lgI = bin.readUshort(data,coff);  coff+=2;
+				var nxt = bin.readUint  (data,coff);  coff+=4; 
+				var gcnt = lgI-fgI+1;
+				//console.log(fgI, lgI, nxt);   //if(nxt==0) break;
+				
+				var ioff = ooff+off+nxt;
+				
+				var inF = bin.readUshort(data,ioff);  ioff+=2;  if(inF!=1) throw inF;
+				var imF = bin.readUshort(data,ioff);  ioff+=2;
+				var imgo = bin.readUint  (data,ioff);  ioff+=4;
+				
+				var oarr = [];
+				for(var gi=0; gi<gcnt; gi++) {
+					var sbitO = bin.readUint(data,ioff+gi*4);  oarr.push(imgo+sbitO);
+					//console.log("--",sbitO);
+				}
+				out.push([fgI,lgI,imF,oarr]);
+			}
+		}
+		return out;
+	}
+};
+
+Typr["T"].CBDT = {
+	parseTab : function(data, offset, length)
+	{
+		var bin = Typr["B"];
+		var ooff=offset;
+		
+		//var maj = bin.readUshort(data,offset);  offset+=2;
+		//var min = bin.readUshort(data,offset);  offset+=2;
+		
+		return new Uint8Array(data.buffer, data.byteOffset+offset, length);
 	}
 };
 
@@ -1175,10 +1245,12 @@ Typr["T"].name = {
 			if(false){}
 			else if(platformID == 0) str = bin.readUnicode(data, soff, slen/2);
 			else if(platformID == 3 && encodingID == 0) str = bin.readUnicode(data, soff, slen/2);
+			else if(platformID == 1 && encodingID ==25) str = bin.readUnicode(data, soff, slen/2);
 			else if(encodingID == 0) str = bin.readASCII  (data, soff, slen);
 			else if(encodingID == 1) str = bin.readUnicode(data, soff, slen/2);
 			else if(encodingID == 3) str = bin.readUnicode(data, soff, slen/2);
 			else if(encodingID == 4) str = bin.readUnicode(data, soff, slen/2);
+			else if(encodingID == 5) str = bin.readUnicode(data, soff, slen/2);
 			else if(encodingID ==10) str = bin.readUnicode(data, soff, slen/2);
 			
 			else if(platformID == 1) { str = bin.readASCII(data, soff, slen);  console.log("reading unknown MAC encoding "+encodingID+" as ASCII") }
@@ -1204,7 +1276,11 @@ Typr["T"].name = {
 			}
 		}
 		*/
-		
+		var out = Typr["T"].name.selectOne(obj), ff="fontFamily";
+		if(out[ff]==null) for(var p in obj) if(obj[p][ff]!=null) out[ff]=obj[p][ff];
+		return out;
+	},
+	selectOne :function(obj) {
 		//console.log(obj);
 		var psn = "postScriptName";
 		
@@ -1346,6 +1422,7 @@ Typr["T"].SVG = {
 			var svgDocLength = bin.readUint  (data, offset);  offset += 4;
 
 			var sbuf = new Uint8Array(data.buffer, offset0 + svgDocOffset + svgDocIndexOffset, svgDocLength);
+			if(sbuf[0]==0x1f && sbuf[1]==0x8b && sbuf[2]==0x08) sbuf = pako["inflate"](sbuf);
 			var svg = bin.readUTF8(sbuf, 0, sbuf.length);
 			
 			for(var f=startGlyphID; f<=endGlyphID; f++) {
@@ -1353,5 +1430,99 @@ Typr["T"].SVG = {
 			}
 		}
 		return obj;
+	}
+};
+
+
+Typr["T"].sbix = {
+	parseTab : function(data, offset, length, obj)
+	{
+		var numGlyphs = obj["maxp"]["numGlyphs"];
+		var ooff = offset;
+		var bin = Typr["B"];
+		
+		//var ver = bin.readUshort(data,offset);  offset+=2;
+		//var flg = bin.readUshort(data,offset);  offset+=2;
+		
+		var numStrikes = bin.readUint  (data,offset+4);
+		
+		var out = [];
+		for(var si=numStrikes-1; si<numStrikes; si++) {
+			var off = ooff+bin.readUint(data,offset+8+si*4);
+			
+			//var ppem = bin.readUshort(data,off);  off+=2;
+			//var ppi  = bin.readUshort(data,off);  off+=2;
+			
+			for(var gi=0; gi<numGlyphs; gi++) {
+				var aoff = bin.readUint(data,off+4+gi*4);
+				var noff = bin.readUint(data,off+4+gi*4+4);  if(aoff==noff) {  out[gi]=null;  continue;  }
+				var go = off+aoff;
+				//var ooX = bin.readUshort(data,go);
+				//var ooY = bin.readUshort(data,go+2);
+				var tag = bin.readASCII(data,go+4,4);  if(tag!="png ") throw tag;
+				
+				out[gi] = new Uint8Array(data.buffer, data.byteOffset+go+8, noff-aoff-8);
+			}
+		}
+		return out;
+	}
+};
+
+Typr["T"].colr = {
+	parseTab : function(data, offset, length)
+	{
+		var bin = Typr["B"];
+		var ooff=offset;
+		offset+=2;
+		var num = bin.readUshort(data,offset);  offset+=2;
+		
+		var boff = bin.readUint(data,offset);  offset+=4;
+		var loff = bin.readUint(data,offset);  offset+=4;
+		
+		var lnum = bin.readUshort(data,offset);  offset+=2;
+		//console.log(num,boff,loff,lnum);
+		
+		var base = {};
+		var coff = ooff+boff;
+		for(var i=0; i<num; i++) {
+			base["g"+bin.readUshort(data,coff)] = [ bin.readUshort(data,coff+2),bin.readUshort(data,coff+4)];
+			coff+=6;
+		}
+
+		var lays = [];
+		coff = ooff+loff;
+		for(var i=0; i<lnum; i++) {
+			lays.push(bin.readUshort(data,coff), bin.readUshort(data,coff+2));  coff+=4;
+		}
+		return [base,lays];
+	}
+};
+
+Typr["T"].cpal = {
+	parseTab : function(data, offset, length)
+	{
+		var bin = Typr["B"];
+		var ooff=offset;
+		var vsn = bin.readUshort(data,offset);  offset+=2;
+		
+		if(vsn==0) {
+			var ets = bin.readUshort(data,offset);  offset+=2;
+			var pts = bin.readUshort(data,offset);  offset+=2;
+			var tot = bin.readUshort(data,offset);  offset+=2;
+			
+			var fst = bin.readUint(data,offset);  offset+=4;
+			
+			return new Uint8Array(data.buffer,ooff+fst,tot*4);
+			/*
+			var coff=ooff+fst;
+			
+			for(var i=0; i<tot; i++) {
+				console.log(data[coff],data[coff+1],data[coff+2],data[coff+3]);
+				coff+=4;
+			}
+			
+			console.log(ets,pts,tot); */
+		}
+		else throw vsn;//console.log("unknown color palette",vsn);
 	}
 };

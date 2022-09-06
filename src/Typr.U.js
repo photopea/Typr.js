@@ -58,105 +58,163 @@ Typr["U"] = {
 		return {"cmds":tpath.cmds, "crds":tpath.crds};
 	},
 
-	"codeToGlyph" : function(font, code)
-	{
-		var cmap = font["cmap"];
-		//console.log(cmap);
-		// "p3e10" for NotoEmoji-Regular.ttf
-		var tind = -1, pps=["p3e10","p0e4","p3e1","p1e0","p0e3","p0e1"/*,"p3e3"*/];
-		for(var i=0; i<pps.length; i++) if(cmap.ids[pps[i]]!=null) {  tind=cmap.ids[pps[i]];  break;  }
-		if(tind==-1) throw "no familiar platform and encoding!";
-		
+	"codeToGlyph" : function() {
 		
 		// find the greatest index with a value <=v
-		var arrSearch = function(arr, k, v) {
-			var l=0, r=Math.floor(arr.length/k);
+		function arrSearch(arr, k, v) {
+			var l=0, r=~~(arr.length/k);
 			while(l+1!=r) {  var mid = l + ((r-l)>>>1);   if(arr[mid*k]<=v) l=mid;  else r=mid;  }
+			
+			//var mi = 0;  for(var i=0; i<arr.length; i+=k) if(arr[i]<=v) mi=i;  if(mi!=l*k) throw "e";
+			
 			return l*k;
 		}
 		
-		var tab = cmap.tables[tind], fmt=tab.format, gid = -1;  //console.log(fmt); throw "e";
-		
-		if(fmt==0) {
-			if(code>=tab.map.length) gid = 0;
-			else gid = tab.map[code];
-		}
-		/*else if(fmt==2) {
-			var data=font["_data"], off = cmap.off+tab.off+6, bin=Typr["B"];
-			var shKey = bin.readUshort(data,off + 2*(code>>>8));
-			var shInd = off + 256*2 + shKey*8;
+		var wha = [0x9,0xa,0xb,0xc,0xd,0x20,0x85,0xa0,0x1680,0x180e,0x2028,0x2029,0x202f,0x2060,0x3000,0xfeff], whm={};
+		for(var i=0; i<wha.length; i++) whm[wha[i]]=1;
+		for(var i=0x2000; i<=0x200d; i++) whm[i]=1;
+	
+		function ctg(font, code)
+		{
+			//console.log(cmap);
+			// "p3e10" for NotoEmoji-Regular.ttf
+			//console.log(cmap);
 			
-			var firstCode = bin.readUshort(data,shInd);
-			var entryCount= bin.readUshort(data,shInd+2);
-			var idDelta   = bin.readShort (data,shInd+4);
-			var idRangeOffset = bin.readUshort(data,shInd+6);
+			if(font["_ctab"]==null) {
+				var cmap = font["cmap"];
+				var tind = -1, pps=["p3e10","p0e4","p3e1","p1e0","p0e3","p0e1"/*,"p3e3"*/,"p3e0" /*Hebrew*/, "p3e5" /*Korean*/];
+				for(var i=0; i<pps.length; i++) if(cmap.ids[pps[i]]!=null) {  tind=cmap.ids[pps[i]];  break;  }
+				if(tind==-1) throw "no familiar platform and encoding!";
+				font["_ctab"]=cmap.tables[tind];
+			}
 			
-			if(firstCode<=code && code<=firstCode+entryCount) {
-				// not completely correct
-				gid = bin.readUshort(data, shInd+6+idRangeOffset + (code&255)*2);
-			}
-			else gid=0;
-			//if(code>256) console.log(code,(code>>>8),shKey,firstCode,entryCount,idDelta,idRangeOffset);
+			var tab = font["_ctab"], fmt=tab.format, gid = -1;  //console.log(fmt); throw "e";
 			
-			//throw "e";
-			//console.log(tab,  bin.readUshort(data,off));
-			//throw "e";
-		}*/
-		else if(fmt==4) {
-			var sind = -1, ec = tab.endCount;
-			if(code>ec[ec.length-1]) sind=-1;
-			else {
-				// smallest index with code <= value
-				sind = arrSearch(ec,1,code);
-				if(ec[sind]<code) sind++;
+			if(fmt==0) {
+				if(code>=tab.map.length) gid = 0;
+				else gid = tab.map[code];
 			}
-			if(sind==-1) gid = 0;
-			else if(code<tab.startCount[sind]) gid = 0;
-			else {
-				var gli = 0;
-				if(tab.idRangeOffset[sind]!=0) gli = tab.glyphIdArray[(code-tab.startCount[sind]) + (tab.idRangeOffset[sind]>>1) - (tab.idRangeOffset.length-sind)];
-				else                           gli = code + tab.idDelta[sind];
-				gid = (gli & 0xFFFF);
+			/*else if(fmt==2) {
+				var data=font["_data"], off = cmap.off+tab.off+6, bin=Typr["B"];
+				var shKey = bin.readUshort(data,off + 2*(code>>>8));
+				var shInd = off + 256*2 + shKey*8;
+				
+				var firstCode = bin.readUshort(data,shInd);
+				var entryCount= bin.readUshort(data,shInd+2);
+				var idDelta   = bin.readShort (data,shInd+4);
+				var idRangeOffset = bin.readUshort(data,shInd+6);
+				
+				if(firstCode<=code && code<=firstCode+entryCount) {
+					// not completely correct
+					gid = bin.readUshort(data, shInd+6+idRangeOffset + (code&255)*2);
+				}
+				else gid=0;
+				//if(code>256) console.log(code,(code>>>8),shKey,firstCode,entryCount,idDelta,idRangeOffset);
+				
+				//throw "e";
+				//console.log(tab,  bin.readUshort(data,off));
+				//throw "e";
+			}*/
+			else if(fmt==4) {
+				var ec = tab.endCount;  gid=0;
+				if(code<=ec[ec.length-1]) {
+					// smallest index with code <= value
+					var sind = arrSearch(ec,1,code);
+					if(ec[sind]<code) sind++;
+					
+					if(code>=tab.startCount[sind]) {
+						var gli = 0;
+						if(tab.idRangeOffset[sind]!=0) gli = tab.glyphIdArray[(code-tab.startCount[sind]) + (tab.idRangeOffset[sind]>>1) - (tab.idRangeOffset.length-sind)];
+						else                           gli = code + tab.idDelta[sind];
+						gid = (gli & 0xFFFF);
+					}
+				}
 			}
-		}
-		else if(fmt==6) {
-			var off = code-tab.firstCode, arr=tab.glyphIdArray;
-			if(off<0 || off>=arr.length) gid=0;
-			else gid = arr[off];
-		}
-		else if(fmt==12) {
-			var grp = tab.groups;  //console.log(grp);  throw "e";
+			else if(fmt==6) {
+				var off = code-tab.firstCode, arr=tab.glyphIdArray;
+				if(off<0 || off>=arr.length) gid=0;
+				else gid = arr[off];
+			}
+			else if(fmt==12) {
+				var grp = tab.groups;  gid=0;  //console.log(grp);  throw "e";
+				
+				if(code<=grp[grp.length-2]) {
+					var i = arrSearch(grp,3,code);
+					if(grp[i]<=code && code<=grp[i+1]) {  gid = grp[i+2] + (code-grp[i]);  }
+				}
+			}
+			else throw "unknown cmap table format "+tab.format;
 			
-			if(code>grp[grp.length-2]) gid = 0;
-			else {
-				var i = arrSearch(grp,3,code);
-				if(grp[i]<=code && code<=grp[i+1]) {  gid = grp[i+2] + (code-grp[i]);  }
-				if(gid==-1) gid=0;
-			}
-		}
-		else throw "unknown cmap table format "+tab.format;
-		
-		//*
-		var SVG = font["SVG "], loca = font["loca"];
-		// if the font claims to have a Glyph for a character, but the glyph is empty, and the character is not "white", it is a lie!
-		if(gid!=0 && font["CFF "]==null && (SVG==null || SVG.entries[gid]==null) && loca[gid]==loca[gid+1]  // loca not present in CFF or SVG fonts
-			&& [0x9,0xa,0xb,0xc,0xd,0x20,0x85,0xa0,0x1680,0x2028,0x2029,0x202f,0x3000,
-				0x180e,0x200b,0x200c,0x200d,0x2060,0xfeff].indexOf(code)==-1 && !(0x2000<=code && code<=0x200a))  gid=0;
-		//*/
-		
-		return gid;
-	},
+			//*
+			var SVG = font["SVG "], loca = font["loca"];
+			// if the font claims to have a Glyph for a character, but the glyph is empty, and the character is not "white", it is a lie!
+			if(gid!=0 && font["CFF "]==null && (SVG==null || SVG.entries[gid]==null) && loca && loca[gid]==loca[gid+1]  // loca not present in CFF or SVG fonts
+				&& whm[code]==null )  gid=0;
+			//*/
+			
+			return gid;
+		} 
+		return ctg;
+	}(),
 
-	"glyphToPath" : function(font, gid)
+	"glyphToPath" : function(font, gid, noColor)
 	{
 		var path = { cmds:[], crds:[] };
-		var SVG = font["SVG "], CFF = font["CFF "];
+		
+		
+		var SVG = font["SVG "], CFF = font["CFF "], COLR=font["COLR"], CBLC=font["CBLC"], CBDT=font["CBDT"], sbix=font["sbix"], upng=window["UPNG"];
 		var U = Typr["U"];
-		if(SVG && SVG.entries[gid]) {
+		
+		var strike = null;
+		if(CBLC && upng) for(var i=0; i<CBLC.length; i++) if(CBLC[i][0]<=gid && gid<=CBLC[i][1]) strike=CBLC[i];
+		
+		if(strike || (sbix && sbix[gid])) {
+			if(strike && strike[2]!=17) throw "not a PNG";
+			
+			if(font["__tmp"]==null) font["__tmp"]={};
+			var cmd = font["__tmp"]["g"+gid];
+			if(cmd==null) {
+				var bmp, len;
+				if(sbix) {  bmp = sbix[gid];  len=bmp.length;  }
+				else {
+					var boff = strike[3][gid-strike[0]]+5;  // smallGlyphMetrics
+					len = (CBDT[boff+1]<<16)|(CBDT[boff+2]<<8)|CBDT[boff+3];  boff+=4;
+					bmp = new Uint8Array(CBDT.buffer, CBDT.byteOffset+boff,len);
+				}				
+				var str = "";  for(var i=0; i<len; i++) str+=String.fromCharCode(bmp[i]);
+				cmd = font["__tmp"]["g"+gid] = "data:image/png;base64,"+btoa(str);
+			}
+			
+			path.cmds.push(cmd);
+			var upe = font["head"]["unitsPerEm"]*1.15;
+			var gw=Math.round(upe), gh=Math.round(upe), dy=Math.round(-gh*0.15);
+			path.crds.push(0,gh+dy, gw,gh+dy, gw,dy, 0,dy); //*/
+		}
+		else if(SVG && SVG.entries[gid]) {
 			var p = SVG.entries[gid];  
 			if(p!=null) {
 				if(typeof p == "string") {  p = U["SVG"].toPath(p);  SVG.entries[gid]=p;  }
 				path=p;
+			}
+		}
+		else if(noColor!=true && COLR && COLR[0]["g"+gid] && COLR[0]["g"+gid][1]>1) {
+			
+			function toHex(n){  var o=n.toString(16);  return (o.length==1 ? "0":"")+o;  }
+			
+			var CPAL = font["CPAL"], gl = COLR[0]["g"+gid];
+			for(var i=0; i<gl[1]; i++) {
+				var lid = gl[0]+i;
+				var cgl = COLR[1][2*lid], pid=COLR[1][2*lid+1]*4;
+				var pth = Typr["U"]["glyphToPath"](font,cgl, cgl==gid);
+				
+				var col = "#"+toHex(CPAL[pid+2])+toHex(CPAL[pid+1])+toHex(CPAL[pid+0]);
+				path.cmds.push(col);
+				
+				path.cmds=path.cmds.concat(pth["cmds"]);
+				path.crds=path.crds.concat(pth["crds"]);
+				//console.log(gid, cgl,pid,col);
+				
+				path.cmds.push("X");
 			}
 		}
 		else if(CFF) {
@@ -228,8 +286,8 @@ Typr["U"] = {
 			var m = prt.m;
 			for(var i=0; i<path.crds.length; i+=2) {
 				var x = path.crds[i  ], y = path.crds[i+1];
-				p.crds.push(x*m.a + y*m.b + m.tx);
-				p.crds.push(x*m.c + y*m.d + m.ty);
+				p.crds.push(x*m.a + y*m.c + m.tx);   // not sure, probably right
+				p.crds.push(x*m.b + y*m.d + m.ty);
 			}
 			for(var i=0; i<path.cmds.length; i++) p.cmds.push(path.cmds[i]);
 		}
@@ -239,14 +297,88 @@ Typr["U"] = {
 	{
 		var cmds = path["cmds"], crds = path["crds"];
 		if(prec==null) prec = 5;
-		var out = [], co = 0, lmap = {"M":2,"L":2,"Q":4,"C":6};
-		for(var i=0; i<cmds.length; i++)
-		{
-			var cmd = cmds[i], cn = co+(lmap[cmd]?lmap[cmd]:0);  
-			out.push(cmd);
-			while(co<cn) {  var c = crds[co++];  out.push(parseFloat(c.toFixed(prec))+(co==cn?"":" "));  }
+		function num(v) {  return parseFloat(v.toFixed(prec));  }
+		function merge(o) {
+			var no = [], lstF=false, lstC="";
+			for(var i=0; i<o.length; i++) {
+				var it=o[i], isF=(typeof it)=="number";
+				if(!isF) {  if(it==lstC && it.length==1 && it!="m") continue;  lstC=it;  }  // move should not be merged (it actually means lineTo)
+				if(lstF && isF && it>=0) no.push(" ");
+				no.push(it);  lstF=isF;
+			}
+			return no.join("");
 		}
-		return out.join("");
+		
+		
+		var out = [], co = 0, lmap = {"M":2,"L":2,"Q":4,"C":6};
+		var x =0, y =0, // perfect coords
+			//dx=0, dy=0, // relative perfect coords
+			//rx=0, ry=0, // relative rounded coords
+			ex=0, ey=0, // error between perfect and output coords
+			mx=0, my=0; // perfect coords of the last "Move"
+		
+		for(var i=0; i<cmds.length; i++) {
+			var cmd = cmds[i], cc=(lmap[cmd]?lmap[cmd]:0); 
+			
+			var o0=[], dx, dy, rx, ry;  // o1=[], cx, cy, ax,ay;
+			if(cmd=="L") {
+				dx=crds[co]-x;  dy=crds[co+1]-y;
+				rx = num(dx+ex);  ry=num(dy+ey);
+				// if this "lineTo" leads to the starting point, and "Z" follows, do not output anything.
+				if(cmds[i+1]=="Z" && crds[co]==mx && crds[co+1]==my) {  rx=dx;  ry=dy;  }
+				else if(rx==0 && ry==0) {}
+				else if(rx==0) o0.push("v",ry);
+				else if(ry==0) o0.push("h",rx);
+				else {  o0.push("l",rx,ry);  }
+			}
+			else {
+				o0.push(cmd.toLowerCase());
+				for(var j=0; j<cc; j+=2) {
+					dx = crds[co+j]-x;  dy=crds[co+j+1]-y;  
+					rx = num(dx+ex);  ry=num(dy+ey);
+					o0.push(rx,ry);
+				}
+			}
+			if(cc!=0) {  ex += dx-rx;  ey += dy-ry;  }
+			
+			/*
+			if(cmd=="L") {
+				cx=crds[co];  cy=crds[co+1];
+				ax = num(cx);  ay=num(cy);
+				// if this "lineTo" leads to the starting point, and "Z" follows, do not output anything.
+				if(cmds[i+1]=="Z" && crds[co]==mx && crds[co+1]==my) {  ax=cx;  ay=cy;  }
+				else if(ax==num(x) && ay==num(y)) {}
+				else if(ax==num(x)) o1.push("V",ay);
+				else if(ay==num(y)) o1.push("H",ax);
+				else {  o1.push("L",ax,ay);  }
+			}
+			else {
+				o1.push(cmd);
+				for(var j=0; j<cc; j+=2) {
+					cx = crds[co+j];  cy=crds[co+j+1];  
+					ax = num(cx);  ay=num(cy);
+					o1.push(ax,ay);
+				}
+			}
+			var ou;
+			if(merge(o0).length<merge(o1).length) {
+				ou = o0;
+				if(cc!=0) {  ex += dx-rx;  ey += dy-ry;  }
+			}
+			else {
+				ou = o1;
+				if(cc!=0) {  ex = cx-ax;  ey = cy-ay;  }
+			}
+			*/
+			var ou=o0;
+			for(var j=0; j<ou.length; j++) out.push(ou[j]);
+			
+			if(cc !=0  ) {  co+=cc;  x=crds[co-2];  y=crds[co-1];    }
+			if(cmd=="M") {  mx=x;  my=y;  }
+			if(cmd=="Z") {  x=mx;  y=my;  }
+		}
+		
+		return merge(out);
 	},
 	"SVGToPath" : function(d) {
 		var pth = {cmds:[], crds:[]};
@@ -254,39 +386,89 @@ Typr["U"] = {
 		return {"cmds":pth.cmds, "crds":pth.crds};
 	},
 
-	"pathToContext" : function(path, ctx) {
-		var c = 0, cmds = path["cmds"], crds = path["crds"];
+	"pathToContext" : function() {
+		var cnv, ct;
 		
-		for(var j=0; j<cmds.length; j++) {
-			var cmd = cmds[j];
-			if     (cmd=="M") {
-				ctx.moveTo(crds[c], crds[c+1]);
-				c+=2;
-			}
-			else if(cmd=="L") {
-				ctx.lineTo(crds[c], crds[c+1]);
-				c+=2;
-			}
-			else if(cmd=="C") {
-				ctx.bezierCurveTo(crds[c], crds[c+1], crds[c+2], crds[c+3], crds[c+4], crds[c+5]);
-				c+=6;
-			}
-			else if(cmd=="Q") {
-				ctx.quadraticCurveTo(crds[c], crds[c+1], crds[c+2], crds[c+3]);
-				c+=4;
-			}
-			else if(cmd.charAt(0)=="#") {
-				ctx.beginPath();
-				ctx.fillStyle = cmd;
-			}
-			else if(cmd=="Z") {
-				ctx.closePath();
-			}
-			else if(cmd=="X") {
-				ctx.fill();
+		function ptc(path, ctx) {
+			var c = 0, cmds = path["cmds"], crds = path["crds"];
+			
+			//ctx.translate(3500,500);  ctx.rotate(0.25);  ctx.scale(1,-1);
+			
+			for(var j=0; j<cmds.length; j++) {
+				var cmd = cmds[j];
+				if     (cmd=="M") {
+					ctx.moveTo(crds[c], crds[c+1]);
+					c+=2;
+				}
+				else if(cmd=="L") {
+					ctx.lineTo(crds[c], crds[c+1]);
+					c+=2;
+				}
+				else if(cmd=="C") {
+					ctx.bezierCurveTo(crds[c], crds[c+1], crds[c+2], crds[c+3], crds[c+4], crds[c+5]);
+					c+=6;
+				}
+				else if(cmd=="Q") {
+					ctx.quadraticCurveTo(crds[c], crds[c+1], crds[c+2], crds[c+3]);
+					c+=4;
+				}
+				else if(cmd[0]=="d") {
+					var upng=window["UPNG"];
+					var x0 = crds[c], y0=crds[c+1], x1=crds[c+2], y1=crds[c+3], x2=crds[c+4], y2=crds[c+5], x3=crds[c+6], y3=crds[c+7];  c+=8;
+					//y0+=400;  y1+=400;  y1+=600;
+					if(upng==null) {
+						ctx.moveTo(x0,y0);  ctx.lineTo(x1,y1);  ctx.lineTo(x2,y2);  ctx.lineTo(x3,y3);  ctx.closePath();
+						continue;
+					}
+					ctx.save();
+					var dx0 = (x1-x0), dy0=(y1-y0), gw=Math.sqrt(dx0*dx0+dy0*dy0);
+					var rot = Math.atan2(dy0,dx0);
+					var dx1 = (x3-x0), dy1=(y3-y0), gh=Math.sqrt(dx1*dx1+dy1*dy1);
+					var sgn = Math.sign(dx0*dy1 - dy0*dx1);
+
+					
+					var sbmp = atob(cmd.slice(22));
+					var bmp = [];
+					for(var i=0; i<sbmp.length; i++) bmp[i]=sbmp.charCodeAt(i);
+					
+					var img = upng["decode"](new Uint8Array(bmp)), w=img["width"], h=img["height"];  //console.log(img);
+					
+					var nbmp = new Uint8Array(upng["toRGBA8"](img)[0]);  
+					//*
+					if(cnv==null) {  cnv = document.createElement("canvas");  ct=cnv.getContext("2d");  }
+					if(cnv.width!=w || cnv.height!=h) {  cnv.width=w;  cnv.height=h;  }
+					
+					ct.putImageData(new ImageData(new Uint8ClampedArray(nbmp.buffer),w,h),0,0);
+					
+					ctx.translate(x0,y0);
+					ctx.rotate(rot);
+					ctx.scale(gw*(w/h)/w,sgn*gh/h);
+					ctx.drawImage(cnv,0,0); //*/
+					ctx.restore();
+				}
+				else if(cmd.charAt(0)=="#" || cmd.charAt(0)=="r") {
+					ctx.beginPath();
+					ctx.fillStyle = cmd;
+				}
+				else if(cmd.charAt(0)=="O" && cmd!="OX") {
+					ctx.beginPath();
+					var pts = cmd.split("-");
+					ctx.lineWidth=parseFloat(pts[2]);
+					ctx.strokeStyle = pts[1];
+				}
+				else if(cmd=="Z") {
+					ctx.closePath();
+				}
+				else if(cmd=="X") {
+					ctx.fill();
+				}
+				else if(cmd=="OX") {
+					ctx.stroke();
+				}
 			}
 		}
-	},
+		return ptc;
+	}(),
 
 	"P" : {
 		MoveTo    : function(p, x, y)        {  p.cmds.push("M");  p.crds.push(x,y);  },
@@ -474,7 +656,7 @@ Typr["U"] = {
 			}
 			else if(v=="o14")
 			{
-				if (stack.length > 0 && !haveWidth) {
+				if (stack.length > 0 && stack.length!=4 && !haveWidth) {
 							width = stack.shift() + font["nominalWidthX"];
 							haveWidth = true;
 						}
@@ -792,19 +974,19 @@ Typr["U"] = {
 		}
 
 		function _tokens(d) {
-			var ts = [], off = 0, rn=false, cn="", pc="";  // reading number, current number, prev char
+			var ts = [], off = 0, rn=false, cn="", pc="", lc="", nc=0;  // reading number, current number, prev char, lastCommand, number count (after last command
 			while(off<d.length){
 				var cc=d.charCodeAt(off), ch = d.charAt(off);  off++;
-				var isNum = (48<=cc && cc<=57) || ch=="." || ch=="-" || ch=="e" || ch=="E";
+				var isNum = (48<=cc && cc<=57) || ch=="." || ch=="-" || ch=="+" || ch=="e" || ch=="E";
 				
 				if(rn) {
-					if( (ch=="-" && pc!="e") || (ch=="." && cn.indexOf(".")!=-1)) {  ts.push(parseFloat(cn));  cn=ch;  }
+					if( ((ch=="+"||ch=="-") && pc!="e") || (ch=="." && cn.indexOf(".")!=-1) || (isNum && (lc=="a"||lc=="A") && ((nc%7)==3||(nc%7)==4))) {  ts.push(parseFloat(cn));  nc++;  cn=ch;  }
 					else if(isNum) cn+=ch;
-					else {  ts.push(parseFloat(cn));  if(ch!="," && ch!=" ") ts.push(ch);  rn=false;  }
+					else {  ts.push(parseFloat(cn));  nc++;  if(ch!="," && ch!=" ") {  ts.push(ch);  lc=ch;  nc=0;  }  rn=false;  }
 				}
 				else {
 					if(isNum) {  cn=ch;  rn=true;  }
-					else if(ch!="," && ch!=" ") ts.push(ch);
+					else if(ch!="," && ch!=" ") {  ts.push(ch);  lc=ch;  nc=0;  }
 				}
 				pc = ch;
 			}
@@ -848,7 +1030,7 @@ Typr["U"] = {
 							cmds.push("Q");  crds.push(x1,y1,x2,y2);  x=x2;  y=y2;
 						}
 						else if(cmu=="T") {
-							var co = Math.max(crds.length-2, oldo);
+							var co = Math.max(crds.length-(cmds[cmds.length-1]=="Q"?4:2), oldo);
 							var x1 = x+x-crds[co], y1 = y+y-crds[co+1];
 							var x2=xi+ts[i++], y2=yi+ts[i++];  
 							cmds.push("Q");  crds.push(x1,y1,x2,y2);  x=x2;  y=y2;
@@ -955,7 +1137,6 @@ Typr["U"] = {
 		else if((code&(0xffffffff-(1<<21)+1))==0) {  len=4;  }
 		return len;
 	}
-	var te = new window["TextEncoder"]("utf8");
 	
 	fetch(hurl)
 		.then(function (x  ) { return x["arrayBuffer"](); })
@@ -963,10 +1144,8 @@ Typr["U"] = {
 		.then(function (res) {
 			console.log("HB ready");
 			var exp = res["instance"]["exports"], mem=exp["memory"];
-			mem["grow"](700); // each page is 64kb in size
-			var heapu8  = new Uint8Array (mem.buffer);
-			var u32 = new Uint32Array(mem.buffer);
-			var i32 = new Int32Array (mem.buffer);
+			//mem["grow"](30); // each page is 64kb in size
+			var heapu8, u32,i32;
 			var __lastFnt, blob,blobPtr,face,font;
 			
 			Typr["U"]["shapeHB"] = (function () {
@@ -978,19 +1157,30 @@ Typr["U"] = {
 					var pPtr32 = exp["hb_buffer_get_glyph_positions"](ptr, 0) >>>2;
 					for(var i=0; i<length; ++i) {
 						var a=iPtr32+i*5, b=pPtr32+i*5;
-					  result.push({
-						"g" : u32[a + 0],
-						"cl": u32[a + 2],
-						"ax": i32[b + 0],
-						"ay": i32[b + 1],
-						"dx": i32[b + 2],
-						"dy": i32[b + 3]
-					  });
+						result.push({
+							"g" : u32[a + 0],
+							"cl": u32[a + 2],
+							"ax": i32[b + 0],
+							"ay": i32[b + 1],
+							"dx": i32[b + 2],
+							"dy": i32[b + 3]
+						});
 					}
+					//console.log(result);
 					return result;
 				}
+				var te;
+				
 				return function (fnt, str, ltr) {
 					var fdata = fnt["_data"], fn = fnt["name"]["postScriptName"];
+					
+					var olen = mem.buffer.byteLength, nlen = 2*fdata.length+str.length*16 + 4e6;
+					if(olen<nlen) {
+						mem["grow"](((nlen-olen)>>>16)+4);  //console.log("growing",nlen);
+					}
+					heapu8 = new Uint8Array (mem.buffer);
+					u32    = new Uint32Array(mem.buffer);
+					i32    = new Int32Array (mem.buffer);
 					
 					if(__lastFnt!=fn) {
 						if(blob!=null) {  
@@ -1005,6 +1195,8 @@ Typr["U"] = {
 						font = exp["hb_font_create"](face)
 						__lastFnt = fn;
 					}
+					if(window["TextEncoder"]==null) {  alert("Your browser is too old. Please, update it.");  return;  }
+					if(te==null) te = new window["TextEncoder"]("utf8");
 					
 					var buffer = exp["hb_buffer_create"]();
 					var bytes = te["encode"](str);
