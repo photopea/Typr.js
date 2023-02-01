@@ -193,7 +193,15 @@ Typr["U"] = {
 		else if(SVG && SVG.entries[gid]) {
 			var p = SVG.entries[gid];  
 			if(p!=null) {
-				if(typeof p == "string") {  p = U["SVG"].toPath(p);  SVG.entries[gid]=p;  }
+				if(typeof p == "number") {  
+					var svg = SVG.svgs[p];
+					if(typeof svg == "string") {
+						var prsr = new DOMParser();
+						var doc = prsr["parseFromString"](svg,"image/svg+xml");
+						svg = SVG.svgs[p] = doc.getElementsByTagName("svg")[0];
+					}
+					p = U["SVG"].toPath(svg,gid);  SVG.entries[gid]=p;  
+				}
 				path=p;
 			}
 		}
@@ -420,29 +428,29 @@ Typr["U"] = {
 						ctx.moveTo(x0,y0);  ctx.lineTo(x1,y1);  ctx.lineTo(x2,y2);  ctx.lineTo(x3,y3);  ctx.closePath();
 						continue;
 					}
-					ctx.save();
-					var dx0 = (x1-x0), dy0=(y1-y0), gw=Math.sqrt(dx0*dx0+dy0*dy0);
-					var rot = Math.atan2(dy0,dx0);
-					var dx1 = (x3-x0), dy1=(y3-y0), gh=Math.sqrt(dx1*dx1+dy1*dy1);
-					var sgn = Math.sign(dx0*dy1 - dy0*dx1);
+					var dx0 = (x1-x0), dy0=(y1-y0), dx1 = (x3-x0), dy1=(y3-y0);
 
-					
 					var sbmp = atob(cmd.slice(22));
-					var bmp = [];
+					var bmp = new Uint8Array(sbmp.length);
 					for(var i=0; i<sbmp.length; i++) bmp[i]=sbmp.charCodeAt(i);
 					
-					var img = upng["decode"](new Uint8Array(bmp)), w=img["width"], h=img["height"];  //console.log(img);
+					var img = upng["decode"](bmp.buffer), w=img["width"], h=img["height"];  //console.log(img);
 					
 					var nbmp = new Uint8Array(upng["toRGBA8"](img)[0]);  
-					//*
+					var tr = ctx["getTransform"]();
+					var scl = Math.sqrt(Math.abs(tr["a"]*tr["d"]-tr["b"]*tr["c"])) * Math.sqrt(dx1*dx1+dy1*dy1)/h;
+					while(scl<0.5) {
+						var nd = mipmapB(nbmp,w,h);
+						nbmp = nd.buff;  w=nd.w;  h=nd.h;  scl*=2;
+					}
+					
 					if(cnv==null) {  cnv = document.createElement("canvas");  ct=cnv.getContext("2d");  }
 					if(cnv.width!=w || cnv.height!=h) {  cnv.width=w;  cnv.height=h;  }
 					
 					ct.putImageData(new ImageData(new Uint8ClampedArray(nbmp.buffer),w,h),0,0);
-					
-					ctx.translate(x0,y0);
-					ctx.rotate(rot);
-					ctx.scale(gw*(w/h)/w,sgn*gh/h);
+					ctx.save();
+					ctx.transform(dx0,dy0,dx1,dy1,x0,y0);
+					ctx.scale(1/w,1/h);
 					ctx.drawImage(cnv,0,0); //*/
 					ctx.restore();
 				}
@@ -467,6 +475,38 @@ Typr["U"] = {
 				}
 			}
 		}
+		function mipmapB(buff, w,h, hlp) {
+			var nw = w>>1, nh = h>>1;
+			var nbuf = (hlp && hlp.length==nw*nh*4) ? hlp : new Uint8Array(nw*nh*4);
+			var sb32 = new Uint32Array(buff.buffer), nb32 = new Uint32Array(nbuf.buffer);
+			for(var y=0; y<nh; y++)
+				for(var x=0; x<nw; x++) {
+					var ti = (y*nw+x), si = ((y<<1)*w+(x<<1));
+					//nbuf[ti  ] = buff[si  ];  nbuf[ti+1] = buff[si+1];  nbuf[ti+2] = buff[si+2];  nbuf[ti+3] = buff[si+3];
+					//*
+					var c0 = sb32[si], c1 = sb32[si+1], c2 = sb32[si+w], c3 = sb32[si+w+1];
+					
+					var a0 = (c0>>>24), a1 = (c1>>>24), a2 = (c2>>>24), a3 = (c3>>>24), a = (a0+a1+a2+a3);
+					
+					if(a==1020) {
+						var r = (((c0>>> 0)&255) + ((c1>>> 0)&255) + ((c2>>> 0)&255) + ((c3>>> 0)&255)+2)>>>2; 
+						var g = (((c0>>> 8)&255) + ((c1>>> 8)&255) + ((c2>>> 8)&255) + ((c3>>> 8)&255)+2)>>>2; 
+						var b = (((c0>>>16)&255) + ((c1>>>16)&255) + ((c2>>>16)&255) + ((c3>>>16)&255)+2)>>>2; 
+						nb32[ti] = (255<<24) | (b<<16) | (g<<8) | r;
+					}
+					else if(a==0) nb32[ti] = 0;
+					else {
+						var r = ((c0>>> 0)&255)*a0 + ((c1>>> 0)&255)*a1 + ((c2>>> 0)&255)*a2 + ((c3>>> 0)&255)*a3; 
+						var g = ((c0>>> 8)&255)*a0 + ((c1>>> 8)&255)*a1 + ((c2>>> 8)&255)*a2 + ((c3>>> 8)&255)*a3; 
+						var b = ((c0>>>16)&255)*a0 + ((c1>>>16)&255)*a1 + ((c2>>>16)&255)*a2 + ((c3>>>16)&255)*a3; 
+					
+						var ia = 1/a;   r = ~~(r*ia+0.5);  g = ~~(g*ia+0.5);  b = ~~(b*ia+0.5);
+						nb32[ti] = (((a+2)>>>2)<<24) | (b<<16) | (g<<8) | r;
+					}
+				}
+			return {  buff:nbuf, w:nw, h:nh  };
+		}
+		
 		return ptc;
 	}(),
 
@@ -917,19 +957,16 @@ Typr["U"] = {
 			return m;
 		}
 		
-		function toPath(str)
-		{
+		function toPath(svg, gid) {
 			var pth = {cmds:[], crds:[]};
-			if(str==null) return pth;
 			
-			var prsr = new DOMParser();
-			var doc = prsr["parseFromString"](str,"image/svg+xml");
-			
-			//var svg = doc.firstChild;  while(svg.tagName!="svg") svg = svg.nextSibling;
-			var svg = doc.getElementsByTagName("svg")[0];
 			var vb = svg.getAttribute("viewBox");
 			if(vb) vb = vb.trim().split(" ").map(parseFloat);  else   vb = [0,0,1000,1000];
-			_toPath(svg.children, pth);
+			
+			var nod = svg;
+			if(gid!=null) {  var nd = svg.getElementById("glyph"+gid);  if(nd) nod=nd;  }
+			
+			_toPath(nod.children, pth,null,svg);
 			for(var i=0; i<pth.crds.length; i+=2) {
 				var x = pth.crds[i], y = pth.crds[i+1];
 				x -= vb[0];
@@ -941,18 +978,55 @@ Typr["U"] = {
 			return pth;
 		}
 
-		function _toPath(nds, pth, fill) {
+		var cmap = {"aliceblue":"#f0f8ff","antiquewhite":"#faebd7","aqua":"#00ffff","aquamarine":"#7fffd4","azure":"#f0ffff","beige":"#f5f5dc","bisque":"#ffe4c4",
+			"black":"#000000","blanchedalmond":"#ffebcd","blue":"#0000ff","blueviolet":"#8a2be2","brown":"#a52a2a","burlywood":"#deb887","cadetblue":"#5f9ea0",
+			"chartreuse":"#7fff00","chocolate":"#d2691e","coral":"#ff7f50","cornflowerblue":"#6495ed","cornsilk":"#fff8dc","crimson":"#dc143c","cyan":"#00ffff",
+			"darkblue":"#00008b","darkcyan":"#008b8b","darkgoldenrod":"#b8860b","darkgray":"#a9a9a9","darkgreen":"#006400","darkgrey":"#a9a9a9","darkkhaki":"#bdb76b",
+			"darkmagenta":"#8b008b","darkolivegreen":"#556b2f","darkorange":"#ff8c00","darkorchid":"#9932cc","darkred":"#8b0000","darksalmon":"#e9967a","darkseagreen":"#8fbc8f",
+			"darkslateblue":"#483d8b","darkslategray":"#2f4f4f","darkslategrey":"#2f4f4f","darkturquoise":"#00ced1","darkviolet":"#9400d3","deeppink":"#ff1493",
+			"deepskyblue":"#00bfff","dimgray":"#696969","dimgrey":"#696969","dodgerblue":"#1e90ff","firebrick":"#b22222","floralwhite":"#fffaf0","forestgreen":"#228b22",
+			"fuchsia":"#ff00ff","gainsboro":"#dcdcdc","ghostwhite":"#f8f8ff","gold":"#ffd700","goldenrod":"#daa520","gray":"#808080","green":"#008000","greenyellow":"#adff2f",
+			"grey":"#808080","honeydew":"#f0fff0","hotpink":"#ff69b4","indianred":"#cd5c5c","indigo":"#4b0082","ivory":"#fffff0","khaki":"#f0e68c","lavender":"#e6e6fa",
+			"lavenderblush":"#fff0f5","lawngreen":"#7cfc00","lemonchiffon":"#fffacd","lightblue":"#add8e6","lightcoral":"#f08080","lightcyan":"#e0ffff",
+			"lightgoldenrodyellow":"#fafad2","lightgray":"#d3d3d3","lightgreen":"#90ee90","lightgrey":"#d3d3d3","lightpink":"#ffb6c1","lightsalmon":"#ffa07a",
+			"lightseagreen":"#20b2aa","lightskyblue":"#87cefa","lightslategray":"#778899","lightslategrey":"#778899","lightsteelblue":"#b0c4de","lightyellow":"#ffffe0",
+			"lime":"#00ff00","limegreen":"#32cd32","linen":"#faf0e6","magenta":"#ff00ff","maroon":"#800000","mediumaquamarine":"#66cdaa","mediumblue":"#0000cd",
+			"mediumorchid":"#ba55d3","mediumpurple":"#9370db","mediumseagreen":"#3cb371","mediumslateblue":"#7b68ee","mediumspringgreen":"#00fa9a",
+			"mediumturquoise":"#48d1cc","mediumvioletred":"#c71585","midnightblue":"#191970","mintcream":"#f5fffa","mistyrose":"#ffe4e1","moccasin":"#ffe4b5",
+			"navajowhite":"#ffdead","navy":"#000080","oldlace":"#fdf5e6","olive":"#808000","olivedrab":"#6b8e23","orange":"#ffa500","orangered":"#ff4500",
+			"orchid":"#da70d6","palegoldenrod":"#eee8aa","palegreen":"#98fb98","paleturquoise":"#afeeee","palevioletred":"#db7093","papayawhip":"#ffefd5",
+			"peachpuff":"#ffdab9","peru":"#cd853f","pink":"#ffc0cb","plum":"#dda0dd","powderblue":"#b0e0e6","purple":"#800080","rebeccapurple":"#663399","red":"#ff0000",
+			"rosybrown":"#bc8f8f","royalblue":"#4169e1","saddlebrown":"#8b4513","salmon":"#fa8072","sandybrown":"#f4a460","seagreen":"#2e8b57","seashell":"#fff5ee",
+			"sienna":"#a0522d","silver":"#c0c0c0","skyblue":"#87ceeb","slateblue":"#6a5acd","slategray":"#708090","slategrey":"#708090","snow":"#fffafa","springgreen":"#00ff7f",
+			"steelblue":"#4682b4","tan":"#d2b48c","teal":"#008080","thistle":"#d8bfd8","tomato":"#ff6347","turquoise":"#40e0d0","violet":"#ee82ee","wheat":"#f5deb3",
+			"white":"#ffffff","whitesmoke":"#f5f5f5","yellow":"#ffff00","yellowgreen":"#9acd32"};
+			
+		function _toPath(nds, pth, fill,root) {
 			for(var ni=0; ni<nds.length; ni++) {
 				var nd = nds[ni], tn = nd.tagName;
 				var cfl = nd.getAttribute("fill");  if(cfl==null) cfl = fill;
-				if(tn=="g") {
+				if(cfl && cfl.startsWith("url")) {
+					var gid = cfl.slice(5,-1);
+					var grd = root.getElementById(gid), s0=grd.children[0];
+					if(s0.getAttribute("stop-opacity")!=null) continue;
+					cfl=s0.getAttribute("stop-color");
+				}
+				if(cmap[cfl]) cfl=cmap[cfl];
+				if(tn=="g" || tn=="use") {
 					var tp = {crds:[], cmds:[]};
-					_toPath(nd.children, tp, cfl);
-					var trf = nd.getAttribute("transform");
-					if(trf) {
-						var m = readTrnf(trf);
-						M.multArray(m, tp.crds);
+					if(tn=="g")	_toPath(nd.children, tp, cfl, root);
+					else {
+						var lnk = nd.getAttribute("xlink:href").slice(1);
+						var pel = root.getElementById(lnk);
+						_toPath([pel], tp, cfl, root);
 					}
+					var m=[1,0,0,1,0,0];
+					var x=nd.getAttribute("x"),y=nd.getAttribute("y");  x=x?parseFloat(x):0;  y=y?parseFloat(y):0;
+					M.concat(m,[1,0,0,1,x,y]);
+					
+					var trf = nd.getAttribute("transform");  if(trf) M.concat(m,readTrnf(trf));
+					
+					M.multArray(m, tp.crds);
 					pth.crds=pth.crds.concat(tp.crds);
 					pth.cmds=pth.cmds.concat(tp.cmds);
 				}
@@ -968,8 +1042,13 @@ Typr["U"] = {
 					}
 					svgToPath(d, pth);  pth.cmds.push("X");
 				}
+				else if(tn=="image") {
+					var w = parseFloat(nd.getAttribute("width")),h=parseFloat(nd.getAttribute("height"));
+					pth.cmds.push(nd.getAttribute("xlink:href"));
+					pth.crds.push(0,0,w,0,w,h,0,h);
+				}
 				else if(tn=="defs") {}
-				else console.log(tn, nd);
+				else console.log(tn);
 			}
 		}
 
@@ -1174,10 +1253,9 @@ Typr["U"] = {
 				return function (fnt, str, ltr) {
 					var fdata = fnt["_data"], fn = fnt["name"]["postScriptName"];
 					
-					var olen = mem.buffer.byteLength, nlen = 2*fdata.length+str.length*16 + 4e6;
-					if(olen<nlen) {
-						mem["grow"](((nlen-olen)>>>16)+4);  //console.log("growing",nlen);
-					}
+					//var olen = mem.buffer.byteLength, nlen = 2*fdata.length+str.length*16 + 4e6;
+					//if(olen<nlen) mem["grow"](((nlen-olen)>>>16)+4);  //console.log("growing",nlen);
+					
 					heapu8 = new Uint8Array (mem.buffer);
 					u32    = new Uint32Array(mem.buffer);
 					i32    = new Int32Array (mem.buffer);

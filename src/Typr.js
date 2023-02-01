@@ -1402,7 +1402,7 @@ Typr["T"].SVG = {
 	parseTab : function(data, offset, length)
 	{
 		var bin = Typr["B"];
-		var obj = { entries: []};
+		var obj = { entries: [], svgs:[]};
 
 		var offset0 = offset;
 
@@ -1426,8 +1426,9 @@ Typr["T"].SVG = {
 			var svg = bin.readUTF8(sbuf, 0, sbuf.length);
 			
 			for(var f=startGlyphID; f<=endGlyphID; f++) {
-				obj.entries[f] = svg;
+				obj.entries[f] = obj.svgs.length;
 			}
+			obj.svgs.push(svg);
 		}
 		return obj;
 	}
