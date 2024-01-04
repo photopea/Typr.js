@@ -1,6 +1,6 @@
 # Typr.js  
 
-[LIVE DEMO](https://photopea.github.io/Typr.js) Typr.js is a Javascript parser and utility for working with fonts (TTF, OTF). It is an alternative to [opentype.js](https://github.com/nodebox/opentype.js). It is the main text engine for [Photopea image editor](https://www.photopea.com).
+[LIVE DEMO](https://photopea.github.io/Typr.js) Typr.js is a Javascript parser and utility for working with fonts (TTF, OTF, TTC). It is an alternative to [opentype.js](https://github.com/nodebox/opentype.js). It is the main text engine for [Photopea image editor](https://www.photopea.com).
 
 * light and small (70 kB unminified uncompressed, 4x smaller than opentype.js)
 * ultra fast (2x to 5x faster parsing than opentype.js)
@@ -19,10 +19,10 @@ Typr.js consists of static functions only, it can be easily rewritten into C or 
 ## Typr
 
 #### `Typr.parse(buffer)`
-* `buffer`: ArrayBuffer, binary data of the TTF or OTF font
-* returns a font object
+* `buffer`: ArrayBuffer, binary data of the TTF, OTF or TTC font
+* returns an array of font objects (one item for TTF/OTF, multiple for TTC)
 
-The output object has a structure, wich corresponds to the structure of the TTF/OTF file. I.e. it is a set of tables, each table has its own structure.
+The font object has a structure, wich corresponds to the structure of the TTF/OTF file. I.e. it is a set of tables, each table has its own structure.
 
 ```javascript
 var font = Typr.parse(buffer);
