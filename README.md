@@ -25,8 +25,8 @@ Typr.js consists of static functions only, it can be easily rewritten into C or 
 The font object has a structure, wich corresponds to the structure of the TTF/OTF file. I.e. it is a set of tables, each table has its own structure.
 
 ```javascript
-var font = Typr.parse(buffer);
-console.log(font);
+var fonts = Typr.parse(buffer);
+console.log(fonts[0]);
 ```
 ## Typr.U
 
