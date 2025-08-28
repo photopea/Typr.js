@@ -6,7 +6,7 @@ Typr["parse"] = function(buff)
 {
 	var bin = Typr["B"];
 	
-	var readFont = function(data, idx, offset,tmap) {
+	var readFont = function(data, offset,tmap) {
 		var T = Typr["T"];
 		var prsr = {
 			"cmap":T.cmap,
@@ -42,7 +42,7 @@ Typr["parse"] = function(buff)
 			"HVAR":T.HVAR
 			//"VORG",
 		};
-		var obj = {"_data":data, "_index":idx, "_offset":offset};
+		var obj = {"_data":data, "_index":0, "_vindex":0, "_offset":offset};
 		
 		for(var t in prsr) {
 			var tab = Typr["findTable"](data, t, offset);
@@ -53,6 +53,23 @@ Typr["parse"] = function(buff)
 			}
 		}
 		return obj;
+	}
+	function readFONT(data, offset, idx, tmap, out) {
+		var fnt = readFont(data, offset,{});  fnt["_index"] = idx;  
+		var fvar = fnt["fvar"];
+		if(fvar) {
+			for(var i=0; i<fvar[1].length; i++) {
+				var fv = fvar[1][i];
+				var obj = {};  out.push(obj);  for(var p in fnt) obj[p]=fnt[p];  
+				obj["_vindex"]=i;
+				var name = obj["name"]=JSON.parse(JSON.stringify(obj["name"]));
+				name["fontSubfamily"] = name["typoSubfamilyName"] = fv[0];
+				if(fv[3]==null) fv[3]=(name["fontFamily"]+"-"+name["fontSubfamily"])["replaceAll"](" ","");
+				else fv[3]=name["_"+fv[3]];
+				name["postScriptName"]=fv[3];
+			}
+		}
+		else out.push(fnt);
 	}
 	
 	function woffToOtf(data) {
@@ -91,6 +108,7 @@ Typr["parse"] = function(buff)
 	var data = new Uint8Array(buff);
 	if(data[0]==0x77) data = woffToOtf(data);
 	
+	var out = [];
 	var tmap = {};
 	var tag = bin.readASCII(data, 0, 4);  
 	if(tag=="ttcf") {
@@ -98,30 +116,16 @@ Typr["parse"] = function(buff)
 		var majV = bin.readUshort(data, offset);  offset+=2;
 		var minV = bin.readUshort(data, offset);  offset+=2;
 		var numF = bin.readUint  (data, offset);  offset+=4;
-		var fnts = [];
 		for(var i=0; i<numF; i++) {
 			var foff = bin.readUint  (data, offset);  offset+=4;
-			fnts.push(readFont(data, i, foff,tmap));
+			readFONT(data,foff,i, tmap, out);
 		}
-		return fnts;
 	}
-	var fnt = readFont(data, 0, 0,tmap);  //console.log(fnt);  throw "e";
-	var fvar = fnt["fvar"];
-	if(fvar) {
-		var out = [fnt];
-		for(var i=0; i<fvar[1].length; i++) {
-			var fv = fvar[1][i];
-			var obj = {};  out.push(obj);  for(var p in fnt) obj[p]=fnt[p];  
-			obj["_index"]=i;
-			var name = obj["name"]=JSON.parse(JSON.stringify(obj["name"]));
-			name["fontSubfamily"] = fv[0];
-			if(fv[3]==null) fv[3]=(name["fontFamily"]+"-"+name["fontSubfamily"])["replaceAll"](" ","");
-			name["postScriptName"]=fv[3];
-		}
-		return out;
-	}
+	else readFONT(data, 0, 0, tmap, out);
 	
-	return [fnt];
+	console.log(out);
+	
+	return out;
 }
 
 
@@ -242,7 +246,7 @@ Typr["T"]={};
 Typr["B"] = {
 	readFixed : function(data, o)
 	{
-		return ((data[o]<<8) | data[o+1]) +  (((data[o+2]<<8)|data[o+3])/(256*256+4));
+		return Typr["B"].readShort(data,o) +  (((data[o+2]<<8)|data[o+3])/(256*256+4));
 	},
 	readF2dot14 : function(data, o)
 	{
@@ -1313,8 +1317,9 @@ Typr["T"].name = {
 			
 			var tid = "p"+platformID+","+(languageID).toString(16);//Typr._platforms[platformID];
 			if(obj[tid]==null) obj[tid] = {};
-			var name = names[nameID];  if(name==null)name="_"+nameID;
-			obj[tid][name] = str;
+			var name = names[nameID];  //if(name==null)name="_"+nameID;
+			if(name) obj[tid][name] = str;
+			obj[tid]["_"+nameID] = str;
 			obj[tid]["_lang"] = languageID;
 			//console.log(tid, obj[tid]);
 		}
@@ -1513,7 +1518,7 @@ Typr["T"].sbix = {
 				var go = off+aoff;
 				//var ooX = bin.readUshort(data,go);
 				//var ooY = bin.readUshort(data,go+2);
-				var tag = bin.readASCII(data,go+4,4);  if(tag!="png ") throw tag;
+				var tag = bin.readASCII(data,go+4,4);  if(tag!="png " && tag!="flip") throw tag;
 				
 				out[gi] = new Uint8Array(data.buffer, data.byteOffset+go+8, noff-aoff-8);
 			}
@@ -1726,8 +1731,9 @@ Typr["T"].gvar = (function() {
 		var goff = bin.readUint  (data,off);  off+=4;
 		
 		// glyphVariationDataOffsets
-		var offs = [];  for(var i=0; i<gcnt+1; i++) offs.push(bin.readUint(data,off+i*4));
-		
+		var offs = [];  
+		if((flgs&1)==0) for(var i=0; i<gcnt+1; i++) offs.push(bin.readUshort(data,off+i*2)*2);
+		if((flgs&1)==1) for(var i=0; i<gcnt+1; i++) offs.push(bin.readUint  (data,off+i*4));
 		
 		// sharedTuples
 		var tups = [], mins=[], maxs=[];  off=offset+toff;
@@ -1762,7 +1768,7 @@ Typr["T"].gvar = (function() {
 			// Serialized Data
 			off=offset + goff + offs[i] + soff;
 			
-			var sind = null;
+			var sind = [];
 			if(snum) {
 				var oo = readPointNumbers(data,off,i);
 				sind=oo[0];  off=oo[1];
@@ -1922,8 +1928,11 @@ Typr["T"].HVAR = {
 		var dfs=[];
 		for(var i=0; i<mapCount; i++) {
 			var entry=0;
-			if(entrySize==1) entry = data[off++];
-			else {  entry = bin.readUshort(data,off);  off+=2;  }
+			if     (entrySize==1)    entry = data[off++];
+			else if(entrySize==2) {  entry = bin.readUshort(data,off);  off+=2;  }
+			else if(entrySize==3) {  entry = (data[off]<<16)|bin.readUshort(data,off+1);  off+=3;  } //console.log(data.slice(off));  throw "e";  }
+			else throw entrySize;
+			
 			var outerIndex = entry >> ((entryFormat & INNER_INDEX_BIT_COUNT_MASK) + 1);
 			var innerIndex = entry & ((1 << ((entryFormat & INNER_INDEX_BIT_COUNT_MASK) + 1)) - 1);
 			//map.push(outerIndex,innerIndex);
