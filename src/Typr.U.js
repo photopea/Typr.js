@@ -25,7 +25,7 @@ Typr["U"] = function() {
 	function shape(font,str,prm) {
 		if(prm==null) prm={};
 		var ltr = prm["ltr"], fts = prm["fts"], axs=prm["axs"];
-		if(font["fvar"] && axs==null) axs = font["fvar"][1][font["_index"]][2];
+		if(font["fvar"] && axs==null) axs = font["fvar"][1][font["_vindex"]][2];
 		
 		var HVAR = font["HVAR"];  //console.log(HVAR);
 		if(axs && HVAR) {  axs=_normalizeAxis(font,axs);  }  //console.log(S,axs);
@@ -173,7 +173,7 @@ Typr["U"] = function() {
 		var path = { cmds:[], crds:[] };
 		
 		if(font["fvar"]) {
-			if(axs==null) axs = font["fvar"][1][font["_index"]][2];
+			if(axs==null) axs = font["fvar"][1][font["_vindex"]][2];
 			axs=_normalizeAxis(font,axs);
 		}
 		
@@ -412,6 +412,7 @@ Typr["U"] = function() {
 	function _compoGlyph(gl, font, gid, p, axs) {
 		
 		var dx = [0,0,0,0,0,0], dy=[0,0,0,0,0,0], ccnt = gl.parts.length;
+		while(dx.length<ccnt) {  dx.push(0);  dy.push(0);  }
 		
 		if(font["fvar"] && axs) {
 			var gvar = font["gvar"];
@@ -1030,7 +1031,7 @@ Typr["U"] = function() {
 				return function (fnt, str, prm) {
 					var fdata = fnt["_data"], fn = fnt["name"]["postScriptName"];
 					var ltr = prm["ltr"], fts = prm["fts"], axs = prm["axs"];
-					if(fnt["fvar"] && axs==null) axs = fnt["fvar"][1][fnt["_index"]][2];
+					if(fnt["fvar"] && axs==null) axs = fnt["fvar"][1][fnt["_vindex"]][2];
 					
 					//var olen = mem.buffer.byteLength, nlen = 2*fdata.length+str.length*16 + 4e6;
 					//if(olen<nlen) mem["grow"](((nlen-olen)>>>16)+4);  //console.log("growing",nlen);

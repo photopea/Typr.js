@@ -193,11 +193,11 @@ Typr["U"]["SVG"] = (function() {
 				if(rn) {
 					if( ((ch=="+"||ch=="-") && pc!="e") || (ch=="." && cn.indexOf(".")!=-1) || (isNum && (lc=="a"||lc=="A") && ((nc%7)==3||(nc%7)==4))) {  ts.push(parseFloat(cn));  nc++;  cn=ch;  }
 					else if(isNum) cn+=ch;
-					else {  ts.push(parseFloat(cn));  nc++;  if(ch!="," && ch!=" ") {  ts.push(ch);  lc=ch;  nc=0;  }  rn=false;  }
+					else {  ts.push(parseFloat(cn));  nc++;  if(ch!="," && ch!=" " && ch!="\n") {  ts.push(ch);  lc=ch;  nc=0;  }  rn=false;  }
 				}
 				else {
 					if(isNum) {  cn=ch;  rn=true;  }
-					else if(ch!="," && ch!=" ") {  ts.push(ch);  lc=ch;  nc=0;  }
+					else if(ch!="," && ch!=" " && ch!="\n") {  ts.push(ch);  lc=ch;  nc=0;  }
 				}
 				pc = ch;
 			}
